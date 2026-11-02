@@ -32,11 +32,10 @@ namespace HoldPointShowdown.Editor
 
             EditorPrefs.SetBool(UseHttpTransportPreference, false);
 
-            if (!StdioBridgeHost.IsRunning)
-            {
-                StdioBridgeHost.StartAutoConnect();
-                Debug.Log($"Unity MCP stdio bridge started automatically on port {StdioBridgeHost.GetCurrentPort()}.");
-            }
+            // A domain reload can preserve a stale running flag after the socket has closed.
+            // StartAutoConnect is idempotent and also repairs that stale bridge state.
+            StdioBridgeHost.StartAutoConnect();
+            Debug.Log($"Unity MCP stdio bridge ensured on port {StdioBridgeHost.GetCurrentPort()}.");
         }
     }
 }

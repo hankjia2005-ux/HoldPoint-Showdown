@@ -18,7 +18,7 @@ namespace HoldPointShowdown.Editor
 
             BuildPlayerOptions options = new()
             {
-                scenes = new[] { "Assets/_Game/Scenes/TestGym.unity" },
+                scenes = new[] { "Assets/_Game/Scenes/ArenaTown.unity" },
                 locationPathName = outputPath,
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.Development
