@@ -1,0 +1,71 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Build output is distributed separately
+[Bb]uild/
+[Bb]uilds/
+*.apk
+*.aab
+*.unitypackage
+
+# IDE and editor files
+.idea/
+.vscode/
+.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Unity crash and diagnostic files
+sysinfo.txt
+crashlytics-build.properties
+mono_crash.*
+
+# Local automation logs
+UnityProject/*.log
+**/*TestResults*.xml
+UnityProject/**/CodeCoverage/
+
+# Empty folders recreated by Unity template/test tooling
+UnityProject/HoldPointShowdown/Assets/Resources/
+UnityProject/HoldPointShowdown/Assets/Resources.meta
+UnityProject/HoldPointShowdown/Assets/Scenes/
+UnityProject/HoldPointShowdown/Assets/Scenes.meta
+UnityProject/HoldPointShowdown/Assets/TutorialInfo/
+UnityProject/HoldPointShowdown/Assets/TutorialInfo.meta
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+service-account*.json
+
+# WPS/cloud temporary files
+*.tmp
+*.bak
+~$*
+.~lock.*
