@@ -1,0 +1,18 @@
+{
+  "name": "HoldPointShowdown.Editor",
+  "rootNamespace": "HoldPointShowdown.Editor",
+  "references": [
+    "HoldPointShowdown.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
