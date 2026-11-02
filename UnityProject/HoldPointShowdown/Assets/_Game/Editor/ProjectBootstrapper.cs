@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using HoldPointShowdown.AI;
 using HoldPointShowdown.Combat;
+using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.GameFlow;
+using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using HoldPointShowdown.Presentation;
 using HoldPointShowdown.UI;
@@ -203,6 +206,8 @@ namespace HoldPointShowdown.Editor
         Material neutral,
         Material dark)
     {
+        CharacterArtBuilder.BuildAssets();
+
         Material grass = GetOrCreateMaterial(MaterialsRoot + "/Grass.mat", new Color(0.34f, 0.68f, 0.43f));
         Material road = GetOrCreateMaterial(MaterialsRoot + "/Road.mat", new Color(0.17f, 0.22f, 0.28f));
         Material warmWhite = GetOrCreateMaterial(MaterialsRoot + "/WarmWhite.mat", new Color(0.94f, 0.89f, 0.76f));
@@ -248,8 +253,8 @@ namespace HoldPointShowdown.Editor
             CreateBlock($"Road Mark {z}", environment.transform, new Vector3(0f, 0.13f, z), new Vector3(0.28f, 0.03f, 2.8f), warmWhite, false);
         }
 
-        CreateTeamBase("Blue Base", -34f, true, architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
-        CreateTeamBase("Red Base", 34f, false, architecture.transform, props.transform, red, warmWhite, dark, yellow, redShield);
+        GameObject blueChest = CreateTeamBase("Blue Base", -34f, true, architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
+        GameObject redChest = CreateTeamBase("Red Base", 34f, false, architecture.transform, props.transform, red, warmWhite, dark, yellow, redShield);
 
         float[] buildingRows = { -22f, -9f, 9f, 22f };
         for (int i = 0; i < buildingRows.Length; i++)
@@ -268,7 +273,7 @@ namespace HoldPointShowdown.Editor
         CreateLootMarker("Loot Medkit", new Vector3(-6.4f, 1.25f, 15f), props.transform, coral);
         CreateLootMarker("Loot Weapon", new Vector3(6.4f, 1.25f, -15f), props.transform, blue);
 
-        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -22.5f), blue, warmWhite, dark, rules);
+        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -22.5f), rules);
         Camera camera = CreateCamera(new Vector3(0f, 4.5f, -34f), Quaternion.identity, true);
         camera.backgroundColor = new Color(0.43f, 0.72f, 0.91f);
         camera.fieldOfView = 64f;
@@ -280,9 +285,20 @@ namespace HoldPointShowdown.Editor
         ThirdPersonPlayerController controller = player.AddComponent<ThirdPersonPlayerController>();
         controller.Configure(camera, weapon);
 
-        CreateTargetDummy("Red Defender A", new Vector3(-3.8f, 0.15f, 17f), props.transform, red, warmWhite, dark, 50f);
-        CreateTargetDummy("Red Defender B", new Vector3(4.2f, 0.15f, 23f), props.transform, red, warmWhite, dark, 25f);
-        CreateTargetDummy("Center Raider", new Vector3(3.5f, 0.37f, 4f), props.transform, red, warmWhite, dark, 0f);
+        Damageable playerDamageable = player.GetComponent<Damageable>();
+        TeamMember playerTeam = player.GetComponent<TeamMember>();
+        PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
+        inventory.Configure(weapon, playerDamageable, 8);
+        BlockCharacterVisual playerVisual = player.GetComponentInChildren<BlockCharacterVisual>();
+        PrototypeWeaponEffects playerEffects = player.AddComponent<PrototypeWeaponEffects>();
+        playerEffects.Configure(weapon, playerVisual != null ? playerVisual.Muzzle : null);
+
+        blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory);
+        redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory);
+
+        CreateEnemyBot("红方守卫甲", new Vector3(-3.8f, 0.15f, 17f), props.transform, rules, player, 50f);
+        CreateEnemyBot("红方守卫乙", new Vector3(4.2f, 0.15f, 23f), props.transform, rules, player, 25f);
+        CreateEnemyBot("中央突击手", new Vector3(3.5f, 0.37f, 4f), props.transform, rules, player, 0f);
 
         GameObject flowObject = new("Match Flow");
         MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
@@ -290,10 +306,10 @@ namespace HoldPointShowdown.Editor
 
         GameObject hudObject = new("Showcase HUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
-        hud.Configure(match, weapon, player.GetComponent<Damageable>());
+        hud.Configure(match, weapon, playerDamageable, inventory);
     }
 
-    private static void CreateTeamBase(
+    private static GameObject CreateTeamBase(
         string name,
         float z,
         bool isBlue,
@@ -341,6 +357,8 @@ namespace HoldPointShowdown.Editor
             GameObject flag = CreateBlock($"Team Flag {side}", root.transform, new Vector3(side * 7.2f, 5.25f, z - (forward * 4.5f)), new Vector3(1.6f, 1f, 0.16f), team, false);
             flag.transform.rotation = Quaternion.Euler(0f, 0f, side * -5f);
         }
+
+        return chestRoot;
     }
 
     private static void CreateShopBuilding(
@@ -468,55 +486,82 @@ namespace HoldPointShowdown.Editor
         pickup.AddComponent<ShowcasePropMotion>().Configure(75f, 0.22f, 1.1f);
     }
 
-    private static GameObject CreateShowcasePlayer(
-        Vector3 position,
-        Material blue,
-        Material warmWhite,
-        Material dark,
-        GameRuleConfig rules)
+    private static GameObject CreateShowcasePlayer(Vector3 position, GameRuleConfig rules)
     {
-        GameObject player = new("Prototype Player");
+        GameObject player = new("蓝方玩家");
         player.transform.position = position;
         player.layer = LayerMask.NameToLayer("Ignore Raycast");
 
         CharacterController characterController = player.AddComponent<CharacterController>();
-        characterController.height = 2f;
-        characterController.radius = 0.45f;
-        characterController.center = new Vector3(0f, 0.95f, 0f);
+        characterController.height = 2.75f;
+        characterController.radius = 0.48f;
+        characterController.center = new Vector3(0f, 1.35f, 0f);
 
         Damageable damageable = player.AddComponent<Damageable>();
         damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor);
+        player.AddComponent<TeamMember>().Configure(TeamId.Blue);
 
-        GameObject body = CreateBlock("Body", player.transform, position + new Vector3(0f, 0.95f, 0f), new Vector3(0.78f, 0.82f, 0.78f), blue, false, PrimitiveType.Capsule);
-        GameObject head = CreateBlock("Head", player.transform, position + new Vector3(0f, 1.95f, 0f), new Vector3(0.72f, 0.72f, 0.72f), warmWhite, false, PrimitiveType.Sphere);
-        GameObject backpack = CreateBlock("Backpack", player.transform, position + new Vector3(0f, 1.08f, -0.38f), new Vector3(0.5f, 0.56f, 0.22f), dark, false);
-        GameObject weapon = CreateBlock("Pistol", player.transform, position + new Vector3(0.42f, 1.25f, 0.48f), new Vector3(0.2f, 0.2f, 0.85f), dark, false);
-
-        foreach (GameObject visual in new[] { body, head, backpack, weapon })
-        {
-            visual.layer = player.layer;
-        }
+        GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.BluePrefabPath, player.transform);
+        SetLayerRecursively(visual, player.layer);
+        visual.GetComponent<CharacterCombatFeedback>()?.Bind(damageable);
 
         return player;
     }
 
-    private static void CreateTargetDummy(
+    private static GameObject CreateEnemyBot(
         string name,
         Vector3 position,
         Transform parent,
-        Material team,
-        Material warmWhite,
-        Material dark,
+        GameRuleConfig rules,
+        GameObject player,
         float armor)
     {
         GameObject target = new(name);
-        target.transform.position = position;
-        target.transform.SetParent(parent);
-        target.AddComponent<Damageable>().Configure(100f, armor);
+        target.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 180f, 0f));
+        target.transform.SetParent(parent, true);
 
-        CreateBlock("Body", target.transform, position + new Vector3(0f, 0.85f, 0f), new Vector3(0.8f, 0.82f, 0.8f), team, true, PrimitiveType.Capsule);
-        CreateBlock("Head", target.transform, position + new Vector3(0f, 1.85f, 0f), new Vector3(0.7f, 0.7f, 0.7f), warmWhite, true, PrimitiveType.Sphere);
-        CreateBlock("Visor", target.transform, position + new Vector3(0f, 1.9f, -0.34f), new Vector3(0.48f, 0.18f, 0.12f), dark, false);
+        CharacterController characterController = target.AddComponent<CharacterController>();
+        characterController.height = 2.75f;
+        characterController.radius = 0.48f;
+        characterController.center = new Vector3(0f, 1.35f, 0f);
+
+        Damageable damageable = target.AddComponent<Damageable>();
+        damageable.Configure(rules.PlayerMaxHealth, armor);
+        target.AddComponent<TeamMember>().Configure(TeamId.Red);
+
+        GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.RedPrefabPath, target.transform);
+        CharacterCombatFeedback feedback = visual.GetComponent<CharacterCombatFeedback>();
+        feedback?.Bind(damageable);
+        BlockCharacterVisual characterVisual = visual.GetComponent<BlockCharacterVisual>();
+        Transform muzzle = characterVisual != null ? characterVisual.Muzzle : null;
+
+        PrototypeWeaponEffects effects = target.AddComponent<PrototypeWeaponEffects>();
+        effects.Configure(null, muzzle);
+        PrototypeEnemyAI ai = target.AddComponent<PrototypeEnemyAI>();
+        ai.Configure(player.transform, player.GetComponent<Damageable>(), muzzle);
+        return target;
+    }
+
+    private static GameObject InstantiateCharacterVisual(string assetPath, Transform parent)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        if (prefab == null)
+        {
+            throw new InvalidOperationException($"Character prefab was not generated: {assetPath}");
+        }
+
+        GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        instance.transform.SetParent(parent, false);
+        return instance;
+    }
+
+    private static void SetLayerRecursively(GameObject root, int layer)
+    {
+        root.layer = layer;
+        foreach (Transform child in root.transform)
+        {
+            SetLayerRecursively(child.gameObject, layer);
+        }
     }
 
     private static GameObject CreateBlock(

@@ -7,8 +7,9 @@ namespace HoldPointShowdown.Player
     public sealed class ThirdPersonCameraRig : MonoBehaviour
     {
     [SerializeField] private Transform _target;
-    [SerializeField] private Vector3 _targetOffset = new(0f, 1.35f, 0f);
-    [SerializeField, Min(1f)] private float _distance = 5f;
+    [SerializeField] private Vector3 _targetOffset = new(0f, 1.45f, 0f);
+    [SerializeField, Min(1f)] private float _distance = 6.5f;
+    [SerializeField] private float _shoulderOffset = 0.85f;
     [SerializeField, Min(0.01f)] private float _mouseSensitivity = 0.12f;
     [SerializeField, Min(1f)] private float _gamepadSensitivity = 120f;
     [SerializeField] private Vector2 _pitchLimits = new(-30f, 65f);
@@ -16,11 +17,15 @@ namespace HoldPointShowdown.Player
 
     private InputAction _lookAction;
     private float _yaw;
-    private float _pitch = 18f;
+    private float _pitch = 10f;
 
     public void Configure(Transform target)
     {
         _target = target;
+        _targetOffset = new Vector3(0f, 1.45f, 0f);
+        _distance = 6.5f;
+        _shoulderOffset = 0.85f;
+        _pitch = 10f;
     }
 
     private void Awake()
@@ -65,7 +70,7 @@ namespace HoldPointShowdown.Player
 
             Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
             Vector3 pivot = _target.position + _targetOffset;
-            Vector3 desiredPosition = pivot - (rotation * Vector3.forward * _distance);
+            Vector3 desiredPosition = pivot + (rotation * new Vector3(_shoulderOffset, 0f, -_distance));
             Vector3 direction = desiredPosition - pivot;
 
             if (Physics.SphereCast(

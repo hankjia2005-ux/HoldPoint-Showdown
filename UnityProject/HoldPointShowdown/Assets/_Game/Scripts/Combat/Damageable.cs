@@ -15,6 +15,7 @@ namespace HoldPointShowdown.Combat
 
     public event Action<Damageable> Died;
     public event Action<Damageable> ResetCompleted;
+    public event Action<Damageable, float, Vector3, GameObject> Damaged;
 
     public float CurrentHealth { get; private set; }
     public float CurrentArmor { get; private set; }
@@ -37,9 +38,13 @@ namespace HoldPointShowdown.Combat
             return;
         }
 
+        float healthBefore = CurrentHealth;
+        float armorBefore = CurrentArmor;
         float armorDamage = Mathf.Min(CurrentArmor, amount);
         CurrentArmor -= armorDamage;
         CurrentHealth = Mathf.Max(0f, CurrentHealth - (amount - armorDamage));
+        float appliedDamage = (healthBefore - CurrentHealth) + (armorBefore - CurrentArmor);
+        Damaged?.Invoke(this, appliedDamage, hitPoint, instigator);
 
         if (!IsAlive)
         {
@@ -53,6 +58,30 @@ namespace HoldPointShowdown.Combat
         CurrentHealth = _maxHealth;
         CurrentArmor = _maxArmor;
         ResetCompleted?.Invoke(this);
+    }
+
+    public float RestoreHealth(float amount)
+    {
+        if (!IsAlive || amount <= 0f)
+        {
+            return 0f;
+        }
+
+        float before = CurrentHealth;
+        CurrentHealth = Mathf.Min(_maxHealth, CurrentHealth + amount);
+        return CurrentHealth - before;
+    }
+
+    public float RestoreArmor(float amount)
+    {
+        if (!IsAlive || amount <= 0f)
+        {
+            return 0f;
+        }
+
+        float before = CurrentArmor;
+        CurrentArmor = Mathf.Min(_maxArmor, CurrentArmor + amount);
+        return CurrentArmor - before;
     }
 
     private void Awake()

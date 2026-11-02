@@ -1,6 +1,7 @@
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Core;
 using HoldPointShowdown.GameFlow;
+using HoldPointShowdown.Player;
 using UnityEngine;
 
 namespace HoldPointShowdown.UI
@@ -10,6 +11,7 @@ namespace HoldPointShowdown.UI
         [SerializeField] private MatchPhaseController _match;
         [SerializeField] private PrototypeHitscanWeapon _weapon;
         [SerializeField] private Damageable _playerDamageable;
+        [SerializeField] private PrototypeInventory _inventory;
 
         private GUIStyle _panelStyle;
         private GUIStyle _smallStyle;
@@ -27,9 +29,19 @@ namespace HoldPointShowdown.UI
             PrototypeHitscanWeapon weapon,
             Damageable playerDamageable)
         {
+            Configure(match, weapon, playerDamageable, null);
+        }
+
+        public void Configure(
+            MatchPhaseController match,
+            PrototypeHitscanWeapon weapon,
+            Damageable playerDamageable,
+            PrototypeInventory inventory)
+        {
             _match = match;
             _weapon = weapon;
             _playerDamageable = playerDamageable;
+            _inventory = inventory;
         }
 
         private void OnGUI()
@@ -49,7 +61,7 @@ namespace HoldPointShowdown.UI
 
             GUI.Label(
                 new Rect((width * 0.5f) - 220f, height - 38f, 440f, 24f),
-                "WASD MOVE   SPACE JUMP   LMB FIRE   R RELOAD   ESC CURSOR",
+                "WASD 移动   空格 跳跃   鼠标左键 射击   R 换弹   Z/X/C 使用物资   E 物资箱",
                 _smallStyle);
 
             GUI.matrix = previousMatrix;
@@ -57,7 +69,7 @@ namespace HoldPointShowdown.UI
 
         private void DrawPhaseBanner(float width)
         {
-            string phase = _match != null ? FormatPhase(_match.CurrentPhase) : "READY";
+            string phase = _match != null ? FormatPhase(_match.CurrentPhase) : "准备中";
             float elapsed = _match != null ? _match.ElapsedSeconds : 0f;
             int minutes = Mathf.FloorToInt(elapsed / 60f);
             int seconds = Mathf.FloorToInt(elapsed % 60f);
@@ -67,7 +79,7 @@ namespace HoldPointShowdown.UI
             GUI.Label(new Rect(panel.x, panel.y + 9f, panel.width, 28f), phase, _phaseStyle);
             GUI.Label(
                 new Rect(panel.x, panel.y + 38f, panel.width, 22f),
-                $"{minutes:00}:{seconds:00}   |   ELIMINATE THE RED TEAM",
+                $"{minutes:00}:{seconds:00}   |   淘汰红方全员",
                 _smallStyle);
         }
 
@@ -81,23 +93,27 @@ namespace HoldPointShowdown.UI
             float armor = _playerDamageable != null ? _playerDamageable.CurrentArmor : 0f;
             float maxArmor = _playerDamageable != null ? Mathf.Max(1f, _playerDamageable.MaxArmor) : 100f;
 
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 12f, 120f, 24f), "BLUE // 01", _labelStyle);
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 12f, 120f, 24f), "蓝方 // 01", _labelStyle);
             GUI.Label(new Rect(panel.x + 220f, panel.y + 12f, 64f, 24f), health.ToString("0"), _valueStyle);
             DrawBar(new Rect(panel.x + 16f, panel.y + 43f, 268f, 16f), health / maxHealth, _blueTexture);
 
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 80f, 20f), "ARMOR", _smallStyle);
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 80f, 20f), "护甲", _smallStyle);
             DrawBar(new Rect(panel.x + 90f, panel.y + 72f, 194f, 10f), armor / maxArmor, _armorTexture);
         }
 
         private void DrawAmmo(float width, float height)
         {
-            Rect panel = new(width - 240f, height - 116f, 220f, 78f);
+            Rect panel = new(width - 260f, height - 142f, 240f, 104f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
 
             string magazine = _weapon != null ? _weapon.MagazineAmmo.ToString("00") : "--";
             string reserve = _weapon != null ? _weapon.ReserveAmmo.ToString("000") : "---";
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 11f, 188f, 35f), $"{magazine}  /  {reserve}", _phaseStyle);
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 47f, 188f, 20f), "PROTOTYPE PISTOL", _smallStyle);
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 8f, 208f, 35f), $"{magazine}  /  {reserve}", _phaseStyle);
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 40f, 208f, 20f), "基础小手枪", _smallStyle);
+            string supplies = _inventory != null
+                ? $"背包 {_inventory.UsedSlots}/{_inventory.Capacity}   弹{_inventory.AmmoPacks}  医{_inventory.Medkits}  甲{_inventory.ArmorPlates}"
+                : "背包 --";
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 208f, 20f), supplies, _smallStyle);
         }
 
         private void DrawCrosshair(float width, float height)
@@ -117,11 +133,11 @@ namespace HoldPointShowdown.UI
         {
             return phase switch
             {
-                MatchPhase.Scavenge => "01  LOOT & PREPARE",
-                MatchPhase.Raid => "02  BASES OPEN",
-                MatchPhase.FinalBattle => "03  FINAL SHOWDOWN",
-                MatchPhase.Complete => "MATCH COMPLETE",
-                _ => "READY"
+                MatchPhase.Scavenge => "阶段一 · 物资发育",
+                MatchPhase.Raid => "阶段二 · 攻防争夺",
+                MatchPhase.FinalBattle => "阶段三 · 终局决战",
+                MatchPhase.Complete => "对局结束",
+                _ => "准备中"
             };
         }
 

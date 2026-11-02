@@ -1,8 +1,25 @@
+using System;
 using HoldPointShowdown.Data;
 using UnityEngine;
 
 namespace HoldPointShowdown.Combat
 {
+    public readonly struct HitscanShot
+    {
+        public HitscanShot(Vector3 origin, Vector3 endPoint, Vector3 normal, bool hit)
+        {
+            Origin = origin;
+            EndPoint = endPoint;
+            Normal = normal;
+            Hit = hit;
+        }
+
+        public Vector3 Origin { get; }
+        public Vector3 EndPoint { get; }
+        public Vector3 Normal { get; }
+        public bool Hit { get; }
+    }
+
     [DisallowMultipleComponent]
     public sealed class PrototypeHitscanWeapon : MonoBehaviour
     {
@@ -15,6 +32,7 @@ namespace HoldPointShowdown.Combat
     public WeaponConfig Config => _config;
     public int MagazineAmmo { get; private set; }
     public int ReserveAmmo { get; private set; }
+    public event Action<HitscanShot> Fired;
 
     public void Configure(WeaponConfig config, Camera aimCamera)
     {
@@ -41,15 +59,20 @@ namespace HoldPointShowdown.Combat
 
         Ray ray = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         Vector3 endPoint = ray.origin + (ray.direction * _config.Range);
+        Vector3 hitNormal = -ray.direction;
+        bool didHit = false;
 
         if (Physics.Raycast(ray, out RaycastHit hit, _config.Range, _hitMask, QueryTriggerInteraction.Ignore))
         {
+            didHit = true;
             endPoint = hit.point;
+            hitNormal = hit.normal;
             IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
             damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
         }
 
         Debug.DrawLine(ray.origin, endPoint, Color.yellow, 0.2f);
+        Fired?.Invoke(new HitscanShot(ray.origin, endPoint, hitNormal, didHit));
         return true;
     }
 
@@ -78,6 +101,17 @@ namespace HoldPointShowdown.Combat
 
         MagazineAmmo = _config.MagazineSize;
         ReserveAmmo = _config.StartingReserveAmmo;
+    }
+
+    public int AddReserveAmmo(int amount)
+    {
+        if (amount <= 0)
+        {
+            return 0;
+        }
+
+        ReserveAmmo += amount;
+        return amount;
     }
 
         private void Awake()
