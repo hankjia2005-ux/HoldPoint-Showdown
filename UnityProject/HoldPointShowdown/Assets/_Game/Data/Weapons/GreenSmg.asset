@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4d344479bbe977428dd76ab83a4722c, type: 3}
+  m_Name: GreenSmg
+  m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.WeaponConfig
+  _itemId: weapon.smg.uncommon
+  _displayName: "\u7EFF\u8272\u75BE\u98CE\u51B2\u950B\u67AA"
+  _archetype: 1
+  _rarity: 1
+  _ammoKind: 0
+  _damage: 13
+  _shotsPerSecond: 10
+  _pellets: 1
+  _spreadDegrees: 2.15
+  _range: 48
+  _magazineSize: 30
+  _startingReserveAmmo: 90
+  _reloadSeconds: 2
+  _ammoPerPickup: 36
+  _modelPrefab: {fileID: 7930829038114747166, guid: fb3a457cd21ce9d48877297fcb1cc00f, type: 3}
+  _rarityColor: {r: 0.22, g: 0.86, b: 0.42, a: 1}

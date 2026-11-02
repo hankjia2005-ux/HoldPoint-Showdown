@@ -80,10 +80,8 @@ namespace HoldPointShowdown.Editor
             Transform rightArmPivot = CreatePivot("右臂关节", model.transform, new Vector3(0.57f, 1.72f, 0f));
             CreatePart("右上臂", rightArmPivot, new Vector3(0f, -0.28f, 0f), new Vector3(0.26f, 0.58f, 0.3f), accent, renderers);
             CreatePart("右手", rightArmPivot, new Vector3(0f, -0.64f, 0.02f), new Vector3(0.27f, 0.22f, 0.29f), skin, renderers);
-            CreatePart("手枪枪身", rightArmPivot, new Vector3(0f, -0.53f, 0.42f), new Vector3(0.2f, 0.2f, 0.72f), dark, renderers);
-            CreatePart("手枪握把", rightArmPivot, new Vector3(0f, -0.70f, 0.23f), new Vector3(0.16f, 0.32f, 0.18f), dark, renderers, new Vector3(10f, 0f, 0f));
-            CreatePart("枪口亮片", rightArmPivot, new Vector3(0f, -0.53f, 0.81f), new Vector3(0.18f, 0.18f, 0.08f), muzzleMaterial, renderers);
-            Transform muzzle = CreatePivot("枪口挂点", rightArmPivot, new Vector3(0f, -0.53f, 0.88f));
+            Transform weaponSocket = CreatePivot("武器挂点", rightArmPivot, new Vector3(0f, -0.53f, 0.12f));
+            Transform muzzle = CreatePivot("备用枪口挂点", weaponSocket, new Vector3(0f, 0f, 0.9f));
 
             Transform leftLegPivot = CreatePivot("左腿关节", model.transform, new Vector3(-0.24f, 0.92f, 0f));
             CreatePart("左腿", leftLegPivot, new Vector3(0f, -0.38f, 0f), new Vector3(0.34f, 0.76f, 0.38f), skin, renderers);
@@ -96,7 +94,7 @@ namespace HoldPointShowdown.Editor
             CreatePart("背包", model.transform, new Vector3(0f, 1.42f, -0.39f), new Vector3(0.58f, 0.62f, 0.2f), dark, renderers);
 
             BlockCharacterVisual visual = root.AddComponent<BlockCharacterVisual>();
-            visual.Configure(model.transform, leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot, muzzle, renderers.ToArray());
+            visual.Configure(model.transform, leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot, muzzle, weaponSocket, renderers.ToArray());
             root.AddComponent<CharacterCombatFeedback>();
 
             PrefabUtility.SaveAsPrefabAsset(root, path);

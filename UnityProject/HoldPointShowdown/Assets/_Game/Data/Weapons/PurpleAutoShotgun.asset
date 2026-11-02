@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4d344479bbe977428dd76ab83a4722c, type: 3}
+  m_Name: PurpleAutoShotgun
+  m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.WeaponConfig
+  _itemId: weapon.shotgun.epic
+  _displayName: "\u7D2B\u8272\u98CE\u66B4\u8FDE\u53D1\u9730\u5F39\u67AA"
+  _archetype: 3
+  _rarity: 3
+  _ammoKind: 2
+  _damage: 8
+  _shotsPerSecond: 2.2
+  _pellets: 8
+  _spreadDegrees: 6.4
+  _range: 24
+  _magazineSize: 8
+  _startingReserveAmmo: 32
+  _reloadSeconds: 2.6
+  _ammoPerPickup: 12
+  _modelPrefab: {fileID: 3145626773391622561, guid: 41f9921f453ad0645b03bf7a6f6f8719, type: 3}
+  _rarityColor: {r: 0.66, g: 0.28, b: 1, a: 1}

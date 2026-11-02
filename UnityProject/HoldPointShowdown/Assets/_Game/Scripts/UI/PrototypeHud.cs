@@ -60,8 +60,8 @@ namespace HoldPointShowdown.UI
             DrawCrosshair(width, height);
 
             GUI.Label(
-                new Rect((width * 0.5f) - 220f, height - 38f, 440f, 24f),
-                "WASD 移动   空格 跳跃   鼠标左键 射击   R 换弹   Z/X/C 使用物资   E 物资箱",
+                new Rect((width * 0.5f) - 310f, height - 38f, 620f, 24f),
+                "WASD 移动  空格 跳跃  左键 射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 物资箱",
                 _smallStyle);
 
             GUI.matrix = previousMatrix;
@@ -109,7 +109,14 @@ namespace HoldPointShowdown.UI
             string magazine = _weapon != null ? _weapon.MagazineAmmo.ToString("00") : "--";
             string reserve = _weapon != null ? _weapon.ReserveAmmo.ToString("000") : "---";
             GUI.Label(new Rect(panel.x + 16f, panel.y + 8f, 208f, 35f), $"{magazine}  /  {reserve}", _phaseStyle);
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 40f, 208f, 20f), "基础小手枪", _smallStyle);
+            string weaponName = _weapon != null && _weapon.Config != null
+                ? _weapon.Config.DisplayName
+                : "未装备武器";
+            if (_weapon != null && _weapon.IsReloading)
+            {
+                weaponName += "  ·  换弹中";
+            }
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 40f, 208f, 20f), weaponName, _smallStyle);
             string supplies = _inventory != null
                 ? $"背包 {_inventory.UsedSlots}/{_inventory.Capacity}   弹{_inventory.AmmoPacks}  医{_inventory.Medkits}  甲{_inventory.ArmorPlates}"
                 : "背包 --";

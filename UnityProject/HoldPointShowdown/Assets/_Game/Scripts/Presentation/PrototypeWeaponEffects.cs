@@ -25,6 +25,11 @@ namespace HoldPointShowdown.Presentation
             EnsureEffects();
         }
 
+        public void SetMuzzle(Transform muzzle)
+        {
+            _muzzle = muzzle;
+        }
+
         public void PlayExternalShot(Vector3 origin, Vector3 endPoint, bool hit)
         {
             EnsureEffects();

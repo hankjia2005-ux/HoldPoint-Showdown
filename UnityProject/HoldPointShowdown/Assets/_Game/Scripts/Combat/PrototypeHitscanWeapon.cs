@@ -23,100 +23,153 @@ namespace HoldPointShowdown.Combat
     [DisallowMultipleComponent]
     public sealed class PrototypeHitscanWeapon : MonoBehaviour
     {
-    [SerializeField] private WeaponConfig _config;
-    [SerializeField] private Camera _aimCamera;
-    [SerializeField] private LayerMask _hitMask = Physics.DefaultRaycastLayers;
+        [SerializeField] private WeaponConfig _config;
+        [SerializeField] private Camera _aimCamera;
+        [SerializeField] private LayerMask _hitMask = Physics.DefaultRaycastLayers;
 
-    private float _nextShotAt;
+        private float _nextShotAt;
+        private float _reloadCompleteAt;
+        private int _pendingReloadAmount;
 
-    public WeaponConfig Config => _config;
-    public int MagazineAmmo { get; private set; }
-    public int ReserveAmmo { get; private set; }
-    public event Action<HitscanShot> Fired;
+        public WeaponConfig Config => _config;
+        public int MagazineAmmo { get; private set; }
+        public int ReserveAmmo { get; private set; }
+        public bool IsReloading => _reloadCompleteAt > 0f;
+        public event Action<HitscanShot> Fired;
+        public event Action<WeaponConfig> ConfigChanged;
+        public event Action AmmoChanged;
 
-    public void Configure(WeaponConfig config, Camera aimCamera)
-    {
-        _config = config;
-        _aimCamera = aimCamera;
-        ResetAmmo();
-    }
-
-    public bool TryFire()
-    {
-        if (_config == null || Time.time < _nextShotAt || MagazineAmmo <= 0)
+        public void Configure(WeaponConfig config, Camera aimCamera)
         {
-            return false;
+            _aimCamera = aimCamera;
+            Equip(config, config != null ? config.MagazineSize : 0, config != null ? config.StartingReserveAmmo : 0);
         }
 
-        Camera sourceCamera = _aimCamera != null ? _aimCamera : Camera.main;
-        if (sourceCamera == null)
+        public void Equip(WeaponConfig config, int magazineAmmo, int reserveAmmo)
         {
-            return false;
+            _config = config;
+            CancelReload();
+            MagazineAmmo = config == null ? 0 : Mathf.Clamp(magazineAmmo, 0, config.MagazineSize);
+            ReserveAmmo = Mathf.Max(0, reserveAmmo);
+            _nextShotAt = Mathf.Min(_nextShotAt, Time.time + 0.12f);
+            ConfigChanged?.Invoke(_config);
+            AmmoChanged?.Invoke();
         }
 
-        MagazineAmmo--;
-        _nextShotAt = Time.time + (1f / _config.ShotsPerSecond);
-
-        Ray ray = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        Vector3 endPoint = ray.origin + (ray.direction * _config.Range);
-        Vector3 hitNormal = -ray.direction;
-        bool didHit = false;
-
-        if (Physics.Raycast(ray, out RaycastHit hit, _config.Range, _hitMask, QueryTriggerInteraction.Ignore))
+        public bool TryFire()
         {
-            didHit = true;
-            endPoint = hit.point;
-            hitNormal = hit.normal;
-            IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
-            damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
+            if (_config == null || IsReloading || Time.time < _nextShotAt || MagazineAmmo <= 0)
+            {
+                return false;
+            }
+
+            Camera sourceCamera = _aimCamera != null ? _aimCamera : Camera.main;
+            if (sourceCamera == null)
+            {
+                return false;
+            }
+
+            MagazineAmmo--;
+            _nextShotAt = Time.time + (1f / _config.ShotsPerSecond);
+            AmmoChanged?.Invoke();
+
+            Ray centerRay = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+            for (int pellet = 0; pellet < _config.Pellets; pellet++)
+            {
+                Vector2 spread = UnityEngine.Random.insideUnitCircle * Mathf.Tan(_config.SpreadDegrees * Mathf.Deg2Rad);
+                Vector3 direction = (
+                    centerRay.direction +
+                    (sourceCamera.transform.right * spread.x) +
+                    (sourceCamera.transform.up * spread.y)).normalized;
+                FireRay(new Ray(centerRay.origin, direction));
+            }
+
+            return true;
         }
 
-        Debug.DrawLine(ray.origin, endPoint, Color.yellow, 0.2f);
-        Fired?.Invoke(new HitscanShot(ray.origin, endPoint, hitNormal, didHit));
-        return true;
-    }
-
-    public bool Reload()
-    {
-        if (_config == null || MagazineAmmo >= _config.MagazineSize || ReserveAmmo <= 0)
+        public bool Reload()
         {
-            return false;
+            if (_config == null || IsReloading || MagazineAmmo >= _config.MagazineSize || ReserveAmmo <= 0)
+            {
+                return false;
+            }
+
+            _pendingReloadAmount = Mathf.Min(_config.MagazineSize - MagazineAmmo, ReserveAmmo);
+            _reloadCompleteAt = Time.time + _config.ReloadSeconds;
+            return _pendingReloadAmount > 0;
         }
 
-        int requested = _config.MagazineSize - MagazineAmmo;
-        int loaded = Mathf.Min(requested, ReserveAmmo);
-        MagazineAmmo += loaded;
-        ReserveAmmo -= loaded;
-        return true;
-    }
-
-    public void ResetAmmo()
-    {
-        if (_config == null)
+        public void ResetAmmo()
         {
-            MagazineAmmo = 0;
-            ReserveAmmo = 0;
-            return;
+            if (_config == null)
+            {
+                MagazineAmmo = 0;
+                ReserveAmmo = 0;
+                return;
+            }
+
+            MagazineAmmo = _config.MagazineSize;
+            ReserveAmmo = _config.StartingReserveAmmo;
+            CancelReload();
+            AmmoChanged?.Invoke();
         }
 
-        MagazineAmmo = _config.MagazineSize;
-        ReserveAmmo = _config.StartingReserveAmmo;
-    }
-
-    public int AddReserveAmmo(int amount)
-    {
-        if (amount <= 0)
+        public int AddReserveAmmo(int amount)
         {
-            return 0;
+            if (amount <= 0)
+            {
+                return 0;
+            }
+
+            ReserveAmmo += amount;
+            AmmoChanged?.Invoke();
+            return amount;
         }
 
-        ReserveAmmo += amount;
-        return amount;
-    }
+        private void FireRay(Ray ray)
+        {
+            Vector3 endPoint = ray.origin + (ray.direction * _config.Range);
+            Vector3 hitNormal = -ray.direction;
+            bool didHit = false;
+
+            if (Physics.Raycast(ray, out RaycastHit hit, _config.Range, _hitMask, QueryTriggerInteraction.Ignore))
+            {
+                didHit = true;
+                endPoint = hit.point;
+                hitNormal = hit.normal;
+                IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
+                damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
+            }
+
+            Debug.DrawLine(ray.origin, endPoint, _config.RarityColor, 0.2f);
+            Fired?.Invoke(new HitscanShot(ray.origin, endPoint, hitNormal, didHit));
+        }
+
+        private void CompleteReload()
+        {
+            MagazineAmmo += _pendingReloadAmount;
+            ReserveAmmo -= _pendingReloadAmount;
+            CancelReload();
+            AmmoChanged?.Invoke();
+        }
+
+        private void CancelReload()
+        {
+            _reloadCompleteAt = 0f;
+            _pendingReloadAmount = 0;
+        }
 
         private void Awake()
         {
             ResetAmmo();
+        }
+
+        private void Update()
+        {
+            if (IsReloading && Time.time >= _reloadCompleteAt)
+            {
+                CompleteReload();
+            }
         }
     }
 }

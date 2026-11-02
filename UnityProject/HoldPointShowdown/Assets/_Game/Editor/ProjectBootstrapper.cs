@@ -55,9 +55,8 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(MaterialsRoot);
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
-        WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(DataRoot + "/PrototypePistol.asset");
-        pistol.SetPrototypeValues("Prototype Pistol", 20f, 4f, 12, 30, 80f);
-        EditorUtility.SetDirty(pistol);
+        ItemArtBuilder.BuildAssets();
+        WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
 
         Material blue = GetOrCreateMaterial(MaterialsRoot + "/TeamBlue.mat", new Color(0.16f, 0.64f, 1f));
         Material red = GetOrCreateMaterial(MaterialsRoot + "/TeamRed.mat", new Color(1f, 0.25f, 0.22f));
@@ -83,9 +82,8 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(GameRoot + "/UI");
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
-        WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(DataRoot + "/PrototypePistol.asset");
-        pistol.SetPrototypeValues("Prototype Pistol", 20f, 4f, 12, 30, 80f);
-        EditorUtility.SetDirty(pistol);
+        ItemArtBuilder.BuildAssets();
+        WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
 
         Material blue = GetOrCreateMaterial(MaterialsRoot + "/TeamBlue.mat", new Color(0.16f, 0.64f, 1f));
         Material red = GetOrCreateMaterial(MaterialsRoot + "/TeamRed.mat", new Color(1f, 0.25f, 0.22f));
@@ -207,6 +205,12 @@ namespace HoldPointShowdown.Editor
         Material dark)
     {
         CharacterArtBuilder.BuildAssets();
+        ItemArtBuilder.BuildAssets();
+
+        GameBalanceConfig balance = AssetDatabase.LoadAssetAtPath<GameBalanceConfig>(ItemArtBuilder.BalanceAssetPath);
+        WeaponConfig smg = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.SmgAssetPath);
+        WeaponConfig rifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.RifleAssetPath);
+        WeaponConfig shotgun = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.ShotgunAssetPath);
 
         Material grass = GetOrCreateMaterial(MaterialsRoot + "/Grass.mat", new Color(0.34f, 0.68f, 0.43f));
         Material road = GetOrCreateMaterial(MaterialsRoot + "/Road.mat", new Color(0.17f, 0.22f, 0.28f));
@@ -267,11 +271,21 @@ namespace HoldPointShowdown.Editor
 
         CreateCentralLandmark(props.transform, dark, teal, yellow);
         CreateCoverLayout(props.transform, dark, warmWhite, coral, teal);
+        CreateTacticalStructures(props.transform, dark, warmWhite, coral, teal, yellow, glass);
         CreateStreetFurniture(presentation.transform, dark, teal, yellow, grass);
-        CreateLootMarker("Loot Armor", new Vector3(-6.4f, 1.25f, -11f), props.transform, teal);
-        CreateLootMarker("Loot Ammo", new Vector3(6.4f, 1.25f, 11f), props.transform, yellow);
-        CreateLootMarker("Loot Medkit", new Vector3(-6.4f, 1.25f, 15f), props.transform, coral);
-        CreateLootMarker("Loot Weapon", new Vector3(6.4f, 1.25f, -15f), props.transform, blue);
+        CreateSupplyPickup("护甲补给", new Vector3(-6.4f, 1.25f, -11f), props.transform,
+            SupplyKind.ArmorPlate, ItemArtBuilder.ArmorPrefabPath, balance, teal);
+        CreateSupplyPickup("轻型弹药", new Vector3(6.4f, 1.25f, 11f), props.transform,
+            SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
+        CreateSupplyPickup("医疗补给", new Vector3(-6.4f, 1.25f, 15f), props.transform,
+            SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
+        CreateWeaponPickup("绿色冲锋枪刷新点", new Vector3(6.4f, 1.15f, -15f), props.transform, smg, balance);
+        CreateWeaponPickup("蓝色步枪刷新点", new Vector3(-13.2f, 1.15f, 6.8f), props.transform, rifle, balance);
+        CreateWeaponPickup("紫色霰弹枪刷新点", new Vector3(13.2f, 1.15f, -6.8f), props.transform, shotgun, balance);
+        CreateSupplyPickup("东侧弹药", new Vector3(18f, 1f, 22f), props.transform,
+            SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
+        CreateSupplyPickup("西侧医疗", new Vector3(-18f, 1f, -22f), props.transform,
+            SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
 
         GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -22.5f), rules);
         Camera camera = CreateCamera(new Vector3(0f, 4.5f, -34f), Quaternion.identity, true);
@@ -287,18 +301,22 @@ namespace HoldPointShowdown.Editor
 
         Damageable playerDamageable = player.GetComponent<Damageable>();
         TeamMember playerTeam = player.GetComponent<TeamMember>();
-        PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
-        inventory.Configure(weapon, playerDamageable, 8);
         BlockCharacterVisual playerVisual = player.GetComponentInChildren<BlockCharacterVisual>();
         PrototypeWeaponEffects playerEffects = player.AddComponent<PrototypeWeaponEffects>();
         playerEffects.Configure(weapon, playerVisual != null ? playerVisual.Muzzle : null);
+        EquippedWeaponView weaponView = player.AddComponent<EquippedWeaponView>();
+        weaponView.Configure(weapon, playerVisual != null ? playerVisual.WeaponSocket : null, playerEffects);
+        WeaponLoadout loadout = player.AddComponent<WeaponLoadout>();
+        loadout.Configure(weapon, balance != null ? balance.MaxCarriedWeapons : 2, pistol);
+        PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
+        inventory.Configure(weapon, playerDamageable, loadout, balance);
 
         blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory);
         redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory);
 
-        CreateEnemyBot("红方守卫甲", new Vector3(-3.8f, 0.15f, 17f), props.transform, rules, player, 50f);
-        CreateEnemyBot("红方守卫乙", new Vector3(4.2f, 0.15f, 23f), props.transform, rules, player, 25f);
-        CreateEnemyBot("中央突击手", new Vector3(3.5f, 0.37f, 4f), props.transform, rules, player, 0f);
+        CreateEnemyBot("红方守卫甲", new Vector3(-3.8f, 0.15f, 17f), props.transform, rules, player, 50f, rifle);
+        CreateEnemyBot("红方守卫乙", new Vector3(4.2f, 0.15f, 23f), props.transform, rules, player, 25f, smg);
+        CreateEnemyBot("中央突击手", new Vector3(3.5f, 0.37f, 4f), props.transform, rules, player, 0f, shotgun);
 
         GameObject flowObject = new("Match Flow");
         MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
@@ -410,6 +428,40 @@ namespace HoldPointShowdown.Editor
             accent,
             false);
         awning.transform.rotation = Quaternion.Euler(0f, 0f, westSide ? -8f : 8f);
+
+        CreateBlock("门口踏板", root.transform, new Vector3(frontX + (streetDirection * 0.5f), 0.42f, z),
+            new Vector3(1.55f, 0.28f, 3.2f), accent);
+        CreateBlock("店铺招牌", root.transform, new Vector3(frontX + (streetDirection * 0.38f), height - 0.55f, z),
+            new Vector3(0.22f, 1.05f, 3.5f), accent, false);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            CreateBlock($"立面包边 {side}", root.transform,
+                new Vector3(frontX + (streetDirection * 0.28f), centerY, z + (side * 4.18f)),
+                new Vector3(0.28f, height + 0.3f, 0.28f), dark, false);
+            CreateBlock($"室内货架 {side}", root.transform,
+                new Vector3(x - (streetDirection * 1.4f), 1.45f, z + (side * 3.35f)),
+                new Vector3(2.8f, 0.18f, 1.05f), dark);
+            CreateBlock($"室内货物 {side}", root.transform,
+                new Vector3(x - (streetDirection * 1.35f), 1.8f, z + (side * 3.35f)),
+                new Vector3(1.9f, 0.5f, 0.8f), accent);
+        }
+
+        CreateBlock("收银台", root.transform,
+            new Vector3(x - (streetDirection * 2.6f), 1.05f, z),
+            new Vector3(1.35f, 1.5f, 3.2f), dark);
+        CreateBlock("收银台面", root.transform,
+            new Vector3(x - (streetDirection * 2.6f), 1.87f, z),
+            new Vector3(1.55f, 0.16f, 3.45f), accent);
+        CreateBlock("室内顶灯", root.transform,
+            new Vector3(x, height - 0.35f, z), new Vector3(1.8f, 0.08f, 0.5f), glass, false);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            CreateBlock($"屋顶女儿墙 {side}", root.transform,
+                new Vector3(x, height + 0.75f, z + (side * 4.72f)),
+                new Vector3(9.2f, 0.75f, 0.25f), dark, false);
+        }
     }
 
     private static void CreateCentralLandmark(Transform parent, Material dark, Material teal, Material glow)
@@ -448,6 +500,44 @@ namespace HoldPointShowdown.Editor
         }
     }
 
+    private static void CreateTacticalStructures(
+        Transform parent,
+        Material dark,
+        Material warmWhite,
+        Material coral,
+        Material teal,
+        Material glow,
+        Material glass)
+    {
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float x = side * 10.8f;
+            float z = side * 3.5f;
+            GameObject stop = new($"战术候车亭 {side}");
+            stop.transform.SetParent(parent);
+            CreateBlock("后挡板", stop.transform, new Vector3(x, 1.55f, z), new Vector3(0.26f, 3f, 5.8f), glass);
+            CreateBlock("顶棚", stop.transform, new Vector3(x - (side * 0.9f), 3.15f, z), new Vector3(2.1f, 0.22f, 6.2f), side < 0 ? coral : teal);
+            CreateBlock("长椅", stop.transform, new Vector3(x - (side * 0.75f), 0.72f, z), new Vector3(1.35f, 0.42f, 3.5f), dark);
+            CreateBlock("灯牌", stop.transform, new Vector3(x - (side * 1.75f), 2.2f, z), new Vector3(0.12f, 1.4f, 1.8f), glow, false);
+        }
+
+        Vector3[] barricades =
+        {
+            new(-2.7f, 0.72f, -6.5f), new(2.7f, 0.72f, 6.5f),
+            new(2.8f, 0.72f, -27f), new(-2.8f, 0.72f, 27f)
+        };
+        for (int i = 0; i < barricades.Length; i++)
+        {
+            Vector3 position = barricades[i];
+            GameObject root = new($"模块化路障 {i + 1}");
+            root.transform.SetParent(parent);
+            CreateBlock("底座", root.transform, position, new Vector3(3.6f, 0.35f, 0.9f), dark);
+            CreateBlock("左护板", root.transform, position + new Vector3(-1.15f, 0.62f, 0f), new Vector3(1.1f, 1.2f, 0.5f), warmWhite);
+            CreateBlock("右护板", root.transform, position + new Vector3(1.15f, 0.62f, 0f), new Vector3(1.1f, 1.2f, 0.5f), warmWhite);
+            CreateBlock("警示条", root.transform, position + new Vector3(0f, 0.55f, -0.28f), new Vector3(0.9f, 0.22f, 0.08f), i % 2 == 0 ? coral : teal, false);
+        }
+    }
+
     private static void CreateStreetFurniture(Transform parent, Material dark, Material teal, Material glow, Material grass)
     {
         for (int z = -24; z <= 24; z += 12)
@@ -476,14 +566,75 @@ namespace HoldPointShowdown.Editor
         }
     }
 
-    private static void CreateLootMarker(string name, Vector3 position, Transform parent, Material material)
+    private static void CreateSupplyPickup(
+        string name,
+        Vector3 position,
+        Transform parent,
+        SupplyKind kind,
+        string prefabPath,
+        GameBalanceConfig balance,
+        Material padMaterial)
     {
         GameObject root = new(name);
         root.transform.SetParent(parent);
-        CreateBlock("Pickup Pad", root.transform, position - new Vector3(0f, 0.75f, 0f), new Vector3(1.25f, 0.08f, 1.25f), material, false, PrimitiveType.Cylinder);
-        GameObject pickup = CreateBlock("Pickup", root.transform, position, new Vector3(0.65f, 0.85f, 0.65f), material, false, PrimitiveType.Capsule);
-        pickup.transform.rotation = Quaternion.Euler(0f, 0f, 90f);
-        pickup.AddComponent<ShowcasePropMotion>().Configure(75f, 0.22f, 1.1f);
+        root.transform.position = position;
+        CreateBlock("拾取底座", root.transform, position - new Vector3(0f, 0.74f, 0f),
+            new Vector3(1.45f, 0.08f, 1.45f), padMaterial, false, PrimitiveType.Cylinder);
+        GameObject visual = InstantiatePrefab(prefabPath, root.transform);
+        visual.name = "悬浮道具模型";
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localScale *= 1.15f;
+        visual.AddComponent<ShowcasePropMotion>().Configure(55f, 0.18f, 1f);
+        WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
+        pickup.ConfigureSupply(kind, 1, balance != null ? balance.PickupRespawnSeconds : 22f, visual);
+        SphereCollider trigger = root.GetComponent<SphereCollider>();
+        trigger.radius = balance != null ? balance.PickupRadius : 1.35f;
+    }
+
+    private static void CreateWeaponPickup(
+        string name,
+        Vector3 position,
+        Transform parent,
+        WeaponConfig config,
+        GameBalanceConfig balance)
+    {
+        if (config == null || config.ModelPrefab == null)
+        {
+            return;
+        }
+
+        GameObject root = new(name);
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+        Material padMaterial = GetOrCreateEmissiveMaterial(
+            $"{MaterialsRoot}/Pickup_{config.Rarity}.mat",
+            config.RarityColor * 0.75f,
+            config.RarityColor * 2.2f);
+        CreateBlock("武器底座", root.transform, position - new Vector3(0f, 0.72f, 0f),
+            new Vector3(1.7f, 0.08f, 1.7f), padMaterial, false, PrimitiveType.Cylinder);
+        GameObject visual = PrefabUtility.InstantiatePrefab(config.ModelPrefab) as GameObject;
+        visual.transform.SetParent(root.transform, false);
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        visual.transform.localScale *= 1.2f;
+        visual.AddComponent<ShowcasePropMotion>().Configure(42f, 0.2f, 1.15f);
+        WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
+        pickup.ConfigureWeapon(config, balance != null ? balance.PickupRespawnSeconds : 22f, visual);
+        SphereCollider trigger = root.GetComponent<SphereCollider>();
+        trigger.radius = balance != null ? balance.PickupRadius : 1.35f;
+    }
+
+    private static GameObject InstantiatePrefab(string path, Transform parent)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (prefab == null)
+        {
+            throw new InvalidOperationException($"Missing generated prefab: {path}");
+        }
+
+        GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        instance.transform.SetParent(parent, false);
+        return instance;
     }
 
     private static GameObject CreateShowcasePlayer(Vector3 position, GameRuleConfig rules)
@@ -514,7 +665,8 @@ namespace HoldPointShowdown.Editor
         Transform parent,
         GameRuleConfig rules,
         GameObject player,
-        float armor)
+        float armor,
+        WeaponConfig weaponConfig)
     {
         GameObject target = new(name);
         target.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 180f, 0f));
@@ -534,6 +686,17 @@ namespace HoldPointShowdown.Editor
         feedback?.Bind(damageable);
         BlockCharacterVisual characterVisual = visual.GetComponent<BlockCharacterVisual>();
         Transform muzzle = characterVisual != null ? characterVisual.Muzzle : null;
+
+        if (weaponConfig != null && weaponConfig.ModelPrefab != null && characterVisual != null && characterVisual.WeaponSocket != null)
+        {
+            GameObject weaponModel = PrefabUtility.InstantiatePrefab(weaponConfig.ModelPrefab) as GameObject;
+            weaponModel.transform.SetParent(characterVisual.WeaponSocket, false);
+            WeaponModelBinding binding = weaponModel.GetComponent<WeaponModelBinding>();
+            if (binding != null && binding.Muzzle != null)
+            {
+                muzzle = binding.Muzzle;
+            }
+        }
 
         PrototypeWeaponEffects effects = target.AddComponent<PrototypeWeaponEffects>();
         effects.Configure(null, muzzle);

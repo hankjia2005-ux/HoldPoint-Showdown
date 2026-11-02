@@ -67,15 +67,15 @@ namespace HoldPointShowdown.Gameplay
             }
 
             bool depositing = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-            if (keyboard.digit1Key.wasPressedThisFrame)
+            if (keyboard.f1Key.wasPressedThisFrame)
             {
                 Transfer(SupplyKind.AmmoPack, depositing);
             }
-            else if (keyboard.digit2Key.wasPressedThisFrame)
+            else if (keyboard.f2Key.wasPressedThisFrame)
             {
                 Transfer(SupplyKind.Medkit, depositing);
             }
-            else if (keyboard.digit3Key.wasPressedThisFrame)
+            else if (keyboard.f3Key.wasPressedThisFrame)
             {
                 Transfer(SupplyKind.ArmorPlate, depositing);
             }
@@ -104,13 +104,13 @@ namespace HoldPointShowdown.Gameplay
             GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享物资箱", _titleStyle);
             GUI.Label(
                 new Rect(panel.x + 24f, panel.y + 48f, panel.width - 48f, 78f),
-                $"[1] 弹药包 × {_ammoPacks}     [2] 医疗包 × {_medkits}     [3] 护甲片 × {_armorPlates}\n" +
+                $"[F1] 弹药包 × {_ammoPacks}     [F2] 医疗包 × {_medkits}     [F3] 护甲片 × {_armorPlates}\n" +
                 $"个人背包：{_inventory.UsedSlots}/{_inventory.Capacity}   弹药 {_inventory.AmmoPacks} / 医疗 {_inventory.Medkits} / 护甲 {_inventory.ArmorPlates}",
                 _bodyStyle);
 
             string operation = friendly
-                ? "数字键取出  ·  Shift + 数字键存入  ·  E关闭"
-                : "数字键抢夺物资  ·  敌方物资不可存入  ·  E关闭";
+                ? "F1/F2/F3 取出  ·  Shift + F1/F2/F3 存入  ·  E关闭"
+                : "F1/F2/F3 抢夺物资  ·  敌方物资不可存入  ·  E关闭";
             GUI.Label(new Rect(panel.x + 20f, panel.y + 142f, panel.width - 40f, 42f), operation, _bodyStyle);
         }
 

@@ -11,6 +11,7 @@ namespace HoldPointShowdown.Presentation
         [SerializeField] private Transform _leftLegPivot;
         [SerializeField] private Transform _rightLegPivot;
         [SerializeField] private Transform _muzzle;
+        [SerializeField] private Transform _weaponSocket;
         [SerializeField] private Renderer[] _renderers;
 
         private Vector3 _lastWorldPosition;
@@ -18,7 +19,28 @@ namespace HoldPointShowdown.Presentation
         private float _stepPhase;
 
         public Transform Muzzle => _muzzle;
+        public Transform WeaponSocket => _weaponSocket != null ? _weaponSocket : _muzzle;
         public Renderer[] Renderers => _renderers;
+
+        public void Configure(
+            Transform modelRoot,
+            Transform leftArmPivot,
+            Transform rightArmPivot,
+            Transform leftLegPivot,
+            Transform rightLegPivot,
+            Transform muzzle,
+            Transform weaponSocket,
+            Renderer[] renderers)
+        {
+            _modelRoot = modelRoot;
+            _leftArmPivot = leftArmPivot;
+            _rightArmPivot = rightArmPivot;
+            _leftLegPivot = leftLegPivot;
+            _rightLegPivot = rightLegPivot;
+            _muzzle = muzzle;
+            _weaponSocket = weaponSocket;
+            _renderers = renderers;
+        }
 
         public void Configure(
             Transform modelRoot,
@@ -29,13 +51,7 @@ namespace HoldPointShowdown.Presentation
             Transform muzzle,
             Renderer[] renderers)
         {
-            _modelRoot = modelRoot;
-            _leftArmPivot = leftArmPivot;
-            _rightArmPivot = rightArmPivot;
-            _leftLegPivot = leftLegPivot;
-            _rightLegPivot = rightLegPivot;
-            _muzzle = muzzle;
-            _renderers = renderers;
+            Configure(modelRoot, leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot, muzzle, muzzle, renderers);
         }
 
         private void Awake()
