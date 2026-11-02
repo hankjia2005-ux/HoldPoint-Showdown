@@ -2,7 +2,8 @@
   "name": "HoldPointShowdown.Editor",
   "rootNamespace": "HoldPointShowdown.Editor",
   "references": [
-    "HoldPointShowdown.Runtime"
+    "HoldPointShowdown.Runtime",
+    "MCPForUnity.Editor"
   ],
   "includePlatforms": [
     "Editor"
