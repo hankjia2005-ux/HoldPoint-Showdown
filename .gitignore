@@ -53,6 +53,8 @@ UnityProject/HoldPointShowdown/Assets/Scenes/
 UnityProject/HoldPointShowdown/Assets/Scenes.meta
 UnityProject/HoldPointShowdown/Assets/TutorialInfo/
 UnityProject/HoldPointShowdown/Assets/TutorialInfo.meta
+UnityProject/HoldPointShowdown/Assets/Settings/SampleSceneProfile.asset
+UnityProject/HoldPointShowdown/Assets/Settings/SampleSceneProfile.asset.meta
 
 # Local environment and secrets
 .env
