@@ -2,6 +2,7 @@ using System.Collections;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Player;
+using HoldPointShowdown.Presentation;
 using UnityEngine;
 
 namespace HoldPointShowdown.Gameplay
@@ -218,6 +219,53 @@ namespace HoldPointShowdown.Gameplay
 
             WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
             pickup.ConfigureDroppedSupply(kind, amount, visual);
+            return pickup;
+        }
+
+        public static WorldItemPickup CreateWeaponDrop(
+            WeaponConfig config,
+            int magazineAmmo,
+            int reserveAmmo,
+            Vector3 position,
+            float pickupDelay = 0.6f,
+            float despawnSeconds = 60f)
+        {
+            if (config == null)
+            {
+                return null;
+            }
+
+            GameObject root = new($"掉落 · {config.DisplayName}");
+            root.transform.position = position;
+            GameObject visual;
+            if (config.ModelPrefab != null)
+            {
+                visual = Instantiate(config.ModelPrefab, root.transform);
+                visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(0f, 90f, 0f));
+                visual.transform.localScale *= 1.15f;
+            }
+            else
+            {
+                visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(root.transform, false);
+                visual.transform.localScale = new Vector3(0.28f, 0.18f, 1.1f);
+                Collider fallbackCollider = visual.GetComponent<Collider>();
+                if (fallbackCollider != null)
+                {
+                    Destroy(fallbackCollider);
+                }
+            }
+
+            visual.name = "掉落武器模型";
+            visual.AddComponent<ShowcasePropMotion>().Configure(48f, 0.14f, 1.15f);
+            WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
+            pickup.ConfigureDroppedWeapon(
+                config,
+                magazineAmmo >= 0 ? magazineAmmo : config.MagazineSize,
+                reserveAmmo >= 0 ? reserveAmmo : config.StartingReserveAmmo,
+                visual,
+                pickupDelay,
+                despawnSeconds);
             return pickup;
         }
 

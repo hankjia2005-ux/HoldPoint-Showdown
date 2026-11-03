@@ -65,7 +65,7 @@ namespace HoldPointShowdown.UI
 
             GUI.Label(
                 new Rect((width * 0.5f) - 390f, height - 38f, 780f, 24f),
-                "WASD 移动  左Shift 疾跑  左Ctrl 下蹲  鼠标瞄准  滚轮缩放  左键射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 箱子  F11 全屏",
+                "WASD 移动  按住Shift疾跑  双击S蹲走  V切换视角  鼠标瞄准  滚轮缩放  左键射击  R换弹  1/2切枪  E开箱  F11全屏",
                 _smallStyle);
 
             if (Cursor.lockState != CursorLockMode.Locked)

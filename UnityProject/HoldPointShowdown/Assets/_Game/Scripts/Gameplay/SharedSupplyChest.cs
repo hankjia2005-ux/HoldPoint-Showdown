@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using HoldPointShowdown.Core;
+using HoldPointShowdown.Data;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Player;
 using UnityEngine;
@@ -10,16 +12,27 @@ namespace HoldPointShowdown.Gameplay
     [DisallowMultipleComponent]
     public sealed class SharedSupplyChest : MonoBehaviour
     {
+        [System.Serializable]
+        private sealed class StoredWeapon
+        {
+            public WeaponConfig Config;
+            public int MagazineAmmo;
+            public int ReserveAmmo;
+        }
+
         [SerializeField] private TeamId _team;
         [SerializeField, Min(0)] private int _ammoPacks = 4;
         [SerializeField, Min(0)] private int _medkits = 3;
         [SerializeField, Min(0)] private int _armorPlates = 3;
         [SerializeField, Min(1f)] private float _interactionRange = 4.5f;
         [SerializeField, Min(1)] private int _maxPerKind = 20;
+        [SerializeField, Min(1)] private int _maxStoredWeapons = 8;
+        [SerializeField] private List<StoredWeapon> _storedWeapons = new();
 
         [SerializeField] private Transform _player;
         [SerializeField] private TeamMember _playerTeam;
         [SerializeField] private PrototypeInventory _inventory;
+        [SerializeField] private WeaponLoadout _loadout;
         [SerializeField] private Renderer[] _renderers;
         [SerializeField] private MatchPhaseController _match;
         private bool _isOpen;
@@ -27,6 +40,11 @@ namespace HoldPointShowdown.Gameplay
         private GUIStyle _titleStyle;
         private GUIStyle _bodyStyle;
         private Texture2D _panelTexture;
+
+        public int AmmoPacks => _ammoPacks;
+        public int Medkits => _medkits;
+        public int ArmorPlates => _armorPlates;
+        public int StoredWeaponCount => _storedWeapons.Count;
 
         public void Configure(
             TeamId team,
@@ -39,6 +57,7 @@ namespace HoldPointShowdown.Gameplay
             _player = player;
             _playerTeam = playerTeam;
             _inventory = inventory;
+            _loadout = inventory != null ? inventory.Loadout : null;
             _match = match;
             _renderers = GetComponentsInChildren<Renderer>();
         }
@@ -75,18 +94,37 @@ namespace HoldPointShowdown.Gameplay
                 return;
             }
 
-            bool depositing = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
             if (keyboard.f1Key.wasPressedThisFrame)
             {
-                Transfer(SupplyKind.AmmoPack, depositing);
+                TryWithdrawSupply(SupplyKind.AmmoPack);
             }
             else if (keyboard.f2Key.wasPressedThisFrame)
             {
-                Transfer(SupplyKind.Medkit, depositing);
+                TryWithdrawSupply(SupplyKind.Medkit);
             }
             else if (keyboard.f3Key.wasPressedThisFrame)
             {
-                Transfer(SupplyKind.ArmorPlate, depositing);
+                TryWithdrawSupply(SupplyKind.ArmorPlate);
+            }
+            else if (keyboard.f4Key.wasPressedThisFrame)
+            {
+                TryWithdrawWeapon();
+            }
+            else if (keyboard.f5Key.wasPressedThisFrame)
+            {
+                TryDepositSupply(SupplyKind.AmmoPack);
+            }
+            else if (keyboard.f6Key.wasPressedThisFrame)
+            {
+                TryDepositSupply(SupplyKind.Medkit);
+            }
+            else if (keyboard.f7Key.wasPressedThisFrame)
+            {
+                TryDepositSupply(SupplyKind.ArmorPlate);
+            }
+            else if (keyboard.f8Key.wasPressedThisFrame)
+            {
+                TryDepositActiveWeapon();
             }
         }
 
@@ -99,62 +137,121 @@ namespace HoldPointShowdown.Gameplay
 
             EnsureStyles();
             float width = 430f;
-            Rect panel = new((Screen.width - width) * 0.5f, Screen.height - (_isOpen ? 248f : 92f), width, _isOpen ? 210f : 54f);
+            Rect panel = new((Screen.width - width) * 0.5f, Screen.height - (_isOpen ? 302f : 92f), width, _isOpen ? 264f : 54f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
 
             string side = _team == TeamId.Blue ? "蓝方" : "红方";
             bool friendly = IsFriendly();
             if (!_isOpen)
             {
-                GUI.Label(panel, $"[E] 打开{side}共享消耗品箱{(friendly ? string.Empty : "（敌方：仅可取出）")}", _titleStyle);
+                GUI.Label(panel, $"[E] 打开{side}共享物资箱{(friendly ? string.Empty : "（敌方：仅可抢夺）")}", _titleStyle);
                 return;
             }
 
-            GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享消耗品箱", _titleStyle);
+            GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享物资箱", _titleStyle);
             GUI.Label(
-                new Rect(panel.x + 24f, panel.y + 48f, panel.width - 48f, 78f),
-                $"[F1] 弹药包 {_ammoPacks}/{_maxPerKind}     [F2] 医疗包 {_medkits}/{_maxPerKind}     [F3] 护甲片 {_armorPlates}/{_maxPerKind}\n" +
+                new Rect(panel.x + 24f, panel.y + 48f, panel.width - 48f, 112f),
+                $"取出：[F1] 弹药包 {_ammoPacks}/{_maxPerKind}   [F2] 医疗包 {_medkits}/{_maxPerKind}   [F3] 护甲片 {_armorPlates}/{_maxPerKind}\n" +
+                $"[F4] 武器 {_storedWeapons.Count}/{_maxStoredWeapons}   {FormatFirstStoredWeapon()}\n" +
                 $"个人背包：{_inventory.UsedSlots}/{_inventory.Capacity}   弹药 {_inventory.AmmoPacks} / 医疗 {_inventory.Medkits} / 护甲 {_inventory.ArmorPlates}",
                 _bodyStyle);
 
             string operation = friendly
-                ? "F1/F2/F3 取出  ·  Shift + F1/F2/F3 存入  ·  E关闭"
-                : "F1/F2/F3 抢夺物资  ·  敌方物资不可存入  ·  E关闭";
-            GUI.Label(new Rect(panel.x + 20f, panel.y + 142f, panel.width - 40f, 42f), operation, _bodyStyle);
+                ? "存入：[F5]弹药 [F6]医疗 [F7]护甲 [F8]当前非初始武器  ·  E关闭"
+                : "F1–F4 抢夺敌方物资  ·  敌方仓库不可存入  ·  E关闭";
+            GUI.Label(new Rect(panel.x + 20f, panel.y + 180f, panel.width - 40f, 62f), operation, _bodyStyle);
         }
 
-        private void Transfer(SupplyKind kind, bool depositing)
+        public bool TryDepositSupply(SupplyKind kind)
+        {
+            if (_inventory == null || !IsFriendly() || GetStock(kind) >= _maxPerKind || !_inventory.TryRemove(kind))
+            {
+                return false;
+            }
+
+            SetStock(kind, GetStock(kind) + 1);
+            Flash(new Color(0.25f, 0.85f, 1f));
+            return true;
+        }
+
+        public bool TryWithdrawSupply(SupplyKind kind)
         {
             if (_inventory == null)
             {
-                return;
+                return false;
             }
 
-            if (depositing)
+            int stock = GetStock(kind);
+            if (stock <= 0 || !_inventory.TryAdd(kind))
             {
-                if (!IsFriendly() || GetStock(kind) >= _maxPerKind || !_inventory.TryRemove(kind))
-                {
-                    return;
-                }
-
-                SetStock(kind, GetStock(kind) + 1);
+                return false;
             }
-            else
+
+            SetStock(kind, stock - 1);
+            NotifyTheftIfNeeded();
+            Flash(IsFriendly() ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f));
+            return true;
+        }
+
+        public bool TryDepositActiveWeapon()
+        {
+            _loadout ??= _inventory != null ? _inventory.Loadout : null;
+            if (!IsFriendly() || _loadout == null || _storedWeapons.Count >= _maxStoredWeapons
+                || !_loadout.TryRemoveActiveForStorage(out WeaponConfig config, out int magazine, out int reserve))
             {
-                int stock = GetStock(kind);
-                if (stock <= 0 || !_inventory.TryAdd(kind))
-                {
-                    return;
-                }
-
-                SetStock(kind, stock - 1);
-                if (!IsFriendly())
-                {
-                    _match?.RaiseMessage($"{(_team == TeamId.Blue ? "蓝方" : "红方")}基地物资被抢", 3f);
-                }
+                return false;
             }
 
-            StartCoroutine(FlashChest(IsFriendly() ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f)));
+            _storedWeapons.Add(new StoredWeapon
+            {
+                Config = config,
+                MagazineAmmo = magazine,
+                ReserveAmmo = reserve
+            });
+            Flash(new Color(0.25f, 0.85f, 1f));
+            return true;
+        }
+
+        public bool TryWithdrawWeapon()
+        {
+            if (_inventory == null || _storedWeapons.Count <= 0)
+            {
+                return false;
+            }
+
+            StoredWeapon stored = _storedWeapons[0];
+            if (stored.Config == null || !_inventory.TryAddWeapon(stored.Config, stored.MagazineAmmo, stored.ReserveAmmo))
+            {
+                return false;
+            }
+
+            _storedWeapons.RemoveAt(0);
+            NotifyTheftIfNeeded();
+            Flash(IsFriendly() ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f));
+            return true;
+        }
+
+        private string FormatFirstStoredWeapon()
+        {
+            return _storedWeapons.Count > 0 && _storedWeapons[0].Config != null
+                ? $"下一把：{_storedWeapons[0].Config.DisplayName}"
+                : "暂无武器";
+        }
+
+        private void NotifyTheftIfNeeded()
+        {
+            if (!IsFriendly())
+            {
+                _match?.RaiseMessage($"{(_team == TeamId.Blue ? "蓝方" : "红方")}基地物资被抢", 3f);
+            }
+        }
+
+        private void Flash(Color color)
+        {
+            if (isActiveAndEnabled)
+            {
+                StartCoroutine(FlashChest(color));
+            }
         }
 
         private bool IsFriendly()

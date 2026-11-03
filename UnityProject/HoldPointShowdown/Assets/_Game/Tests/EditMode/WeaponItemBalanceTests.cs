@@ -1,5 +1,7 @@
 using HoldPointShowdown.Combat;
+using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using NUnit.Framework;
 using UnityEngine;
@@ -79,6 +81,42 @@ namespace HoldPointShowdown.Tests
             Assert.That(loadout.TryAddWeapon(pistol), Is.True);
             Assert.That(loadout.WeaponCount, Is.EqualTo(1));
             Assert.That(weapon.ReserveAmmo, Is.EqualTo(reserveBefore + pistol.AmmoPerPickup));
+        }
+
+        [Test]
+        public void SharedChest_StoresAndRestoresSuppliesAndActiveWeapon()
+        {
+            GameObject player = Track(new GameObject("仓库测试玩家"));
+            PrototypeHitscanWeapon weapon = player.AddComponent<PrototypeHitscanWeapon>();
+            Damageable damageable = player.AddComponent<Damageable>();
+            TeamMember team = player.AddComponent<TeamMember>();
+            team.Configure(TeamId.Blue);
+            WeaponLoadout loadout = player.AddComponent<WeaponLoadout>();
+            PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
+            GameBalanceConfig balance = Track(ScriptableObject.CreateInstance<GameBalanceConfig>());
+            balance.SetDemoValues();
+            WeaponConfig pistol = CreateWeapon("仓库手枪", WeaponArchetype.Pistol, ItemRarity.Common, 20f, 4f, 1, 0f, 12);
+            WeaponConfig rifle = CreateWeapon("仓库步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 22f, 6f, 1, 0f, 24);
+            loadout.Configure(weapon, 2, pistol);
+            inventory.Configure(weapon, damageable, loadout, balance);
+            Assert.That(inventory.TryAddWeapon(rifle), Is.True);
+            Assert.That(inventory.TryAdd(SupplyKind.AmmoPack), Is.True);
+
+            GameObject chestObject = Track(new GameObject("蓝方共享仓库"));
+            SharedSupplyChest chest = chestObject.AddComponent<SharedSupplyChest>();
+            chest.Configure(TeamId.Blue, player.transform, team, inventory);
+
+            int ammoBefore = chest.AmmoPacks;
+            Assert.That(chest.TryDepositSupply(SupplyKind.AmmoPack), Is.True);
+            Assert.That(chest.AmmoPacks, Is.EqualTo(ammoBefore + 1));
+            Assert.That(chest.TryDepositActiveWeapon(), Is.True);
+            Assert.That(chest.StoredWeaponCount, Is.EqualTo(1));
+            Assert.That(loadout.WeaponCount, Is.EqualTo(1));
+            Assert.That(chest.TryWithdrawSupply(SupplyKind.AmmoPack), Is.True);
+            Assert.That(chest.TryWithdrawWeapon(), Is.True);
+            Assert.That(chest.StoredWeaponCount, Is.EqualTo(0));
+            Assert.That(loadout.WeaponCount, Is.EqualTo(2));
+            Assert.That(loadout.ActiveWeapon, Is.SameAs(rifle));
         }
 
         [Test]

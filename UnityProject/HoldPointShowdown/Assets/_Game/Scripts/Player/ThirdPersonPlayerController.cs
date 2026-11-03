@@ -12,11 +12,12 @@ namespace HoldPointShowdown.Player
     {
         public const string CrouchKeyboardBinding = "<Keyboard>/leftCtrl";
         public const string SprintKeyboardBinding = "<Keyboard>/leftShift";
+        public const float BackwardDoubleTapWindow = 0.32f;
 
         [Header("Movement")]
-        [SerializeField, Min(0.1f)] private float _moveSpeed = 5f;
-        [SerializeField, Min(0.1f)] private float _sprintSpeed = 7.5f;
-        [SerializeField, Min(0.1f)] private float _crouchSpeed = 2.5f;
+        [SerializeField, Min(0.1f)] private float _moveSpeed = 6.5f;
+        [SerializeField, Min(0.1f)] private float _sprintSpeed = 10f;
+        [SerializeField, Min(0.1f)] private float _crouchSpeed = 3.5f;
         [SerializeField, Min(0.1f)] private float _rotationSpeed = 14f;
         [SerializeField, Min(0.1f)] private float _jumpHeight = 1.25f;
         [SerializeField, Min(0.1f)] private float _gravity = 24f;
@@ -36,6 +37,7 @@ namespace HoldPointShowdown.Player
         private float _verticalVelocity;
         private bool _isCrouching;
         private bool _isSprinting;
+        private float _lastBackwardPressedAt = -10f;
         private bool _cursorUnlockedByUser;
         private float _standingHeight;
         private Vector3 _standingCenter;
@@ -45,6 +47,9 @@ namespace HoldPointShowdown.Player
 
         public bool IsCrouching => _isCrouching;
         public bool IsSprinting => _isSprinting;
+        public float MoveSpeed => _moveSpeed;
+        public float SprintSpeed => _sprintSpeed;
+        public float CrouchSpeed => _crouchSpeed;
 
         public void Configure(Camera playerCamera, PrototypeHitscanWeapon weapon)
         {
@@ -184,7 +189,7 @@ namespace HoldPointShowdown.Player
                 return;
             }
 
-            if (_crouchAction.WasPressedThisFrame())
+            if (ShouldToggleCrouch())
             {
                 SetCrouching(!_isCrouching);
             }
@@ -216,7 +221,6 @@ namespace HoldPointShowdown.Player
             }
 
             bool sprinting = !_isCrouching
-                && input.y > 0.1f
                 && horizontal.sqrMagnitude > 0.01f
                 && _sprintAction.IsPressed();
             SetSprinting(sprinting);
@@ -251,6 +255,26 @@ namespace HoldPointShowdown.Player
                     targetRotation,
                     1f - Mathf.Exp(-_rotationSpeed * Time.deltaTime));
             }
+        }
+
+        private bool ShouldToggleCrouch()
+        {
+            bool toggle = _crouchAction.WasPressedThisFrame();
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null || !keyboard.sKey.wasPressedThisFrame)
+            {
+                return toggle;
+            }
+
+            float now = Time.unscaledTime;
+            if (now - _lastBackwardPressedAt <= BackwardDoubleTapWindow)
+            {
+                _lastBackwardPressedAt = -10f;
+                return true;
+            }
+
+            _lastBackwardPressedAt = now;
+            return toggle;
         }
 
         private static void SetCursorLocked(bool locked)

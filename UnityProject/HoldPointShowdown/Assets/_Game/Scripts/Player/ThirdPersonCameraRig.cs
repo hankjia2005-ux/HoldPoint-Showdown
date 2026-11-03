@@ -1,17 +1,24 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HoldPointShowdown.Presentation;
 
 namespace HoldPointShowdown.Player
 {
     [DisallowMultipleComponent]
     public sealed class ThirdPersonCameraRig : MonoBehaviour
     {
+        public const string PerspectiveKeyboardBinding = "<Keyboard>/v";
+
         [Header("Follow")]
         [SerializeField] private Transform _target;
         [SerializeField] private Vector3 _targetOffset = new(0f, 1.6f, 0f);
         [SerializeField, Min(1f)] private float _distance = 9f;
         [SerializeField] private float _shoulderOffset = 1f;
-        [SerializeField, Min(0f)] private float _collisionRadius = 0.2f;
+        [SerializeField, Min(0f)] private float _collisionRadius = 0.34f;
+
+        [Header("Perspective")]
+        [SerializeField] private Vector3 _firstPersonOffset = new(0f, 2.28f, 0.12f);
+        [SerializeField] private bool _startInFirstPerson;
 
         [Header("Aim")]
         [SerializeField, Min(0.01f)] private float _mouseSensitivity = 0.1f;
@@ -28,10 +35,13 @@ namespace HoldPointShowdown.Player
         private float _targetDistance;
         private float _currentDistance;
         private float _zoomVelocity;
+        private bool _isFirstPerson;
+        private Renderer[] _localBodyRenderers;
 
         public float CurrentDistance => _currentDistance;
         public float TargetDistance => _targetDistance;
         public Vector2 LookAngles => new(_yaw, _pitch);
+        public bool IsFirstPerson => _isFirstPerson;
 
         public void Configure(Transform target)
         {
@@ -41,7 +51,32 @@ namespace HoldPointShowdown.Player
             _shoulderOffset = 1f;
             _zoomLimits = new Vector2(5.5f, 12f);
             _pitch = 10f;
+            CacheLocalBodyRenderers();
+            SetFirstPerson(_startInFirstPerson);
             ResetDistance();
+        }
+
+        public void TogglePerspective()
+        {
+            SetFirstPerson(!_isFirstPerson);
+        }
+
+        public void SetFirstPerson(bool firstPerson)
+        {
+            _isFirstPerson = firstPerson;
+            CacheLocalBodyRenderers();
+            if (_localBodyRenderers == null)
+            {
+                return;
+            }
+
+            foreach (Renderer bodyRenderer in _localBodyRenderers)
+            {
+                if (bodyRenderer != null)
+                {
+                    bodyRenderer.forceRenderingOff = firstPerson;
+                }
+            }
         }
 
         public void ApplyLookDelta(Vector2 lookDelta, bool mouseInput)
@@ -69,7 +104,24 @@ namespace HoldPointShowdown.Player
         private void Awake()
         {
             _yaw = transform.eulerAngles.y;
+            _isFirstPerson = _startInFirstPerson;
             ResetDistance();
+        }
+
+        private void OnDisable()
+        {
+            if (_localBodyRenderers == null)
+            {
+                return;
+            }
+
+            foreach (Renderer bodyRenderer in _localBodyRenderers)
+            {
+                if (bodyRenderer != null)
+                {
+                    bodyRenderer.forceRenderingOff = false;
+                }
+            }
         }
 
         private void LateUpdate()
@@ -80,7 +132,19 @@ namespace HoldPointShowdown.Player
             }
 
             ReadAimInput();
+            ReadPerspectiveInput();
             ReadZoomInput();
+
+            Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
+            if (_isFirstPerson)
+            {
+                Vector3 firstPersonPosition = _target.position
+                    + (Vector3.up * _firstPersonOffset.y)
+                    + (rotation * new Vector3(_firstPersonOffset.x, 0f, _firstPersonOffset.z));
+                transform.SetPositionAndRotation(firstPersonPosition, rotation);
+                return;
+            }
+
             _currentDistance = Mathf.SmoothDamp(
                 _currentDistance,
                 _targetDistance,
@@ -89,7 +153,6 @@ namespace HoldPointShowdown.Player
                 Mathf.Infinity,
                 Time.unscaledDeltaTime);
 
-            Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
             Vector3 pivot = _target.position + _targetOffset;
             Vector3 desiredPosition = pivot + (rotation * new Vector3(
                 _shoulderOffset,
@@ -141,7 +204,7 @@ namespace HoldPointShowdown.Player
 
         private void ReadZoomInput()
         {
-            if (Cursor.lockState != CursorLockMode.Locked || Mouse.current == null)
+            if (_isFirstPerson || Cursor.lockState != CursorLockMode.Locked || Mouse.current == null)
             {
                 return;
             }
@@ -154,6 +217,25 @@ namespace HoldPointShowdown.Player
 
             float steps = Mathf.Clamp(scroll / 120f, -3f, 3f);
             SetZoomDistance(_targetDistance - (steps * _zoomStep));
+        }
+
+        private void ReadPerspectiveInput()
+        {
+            if (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
+            {
+                TogglePerspective();
+            }
+        }
+
+        private void CacheLocalBodyRenderers()
+        {
+            if (_target == null)
+            {
+                return;
+            }
+
+            BlockCharacterVisual visual = _target.GetComponentInChildren<BlockCharacterVisual>();
+            _localBodyRenderers = visual != null ? visual.Renderers : null;
         }
 
         private void ResetDistance()

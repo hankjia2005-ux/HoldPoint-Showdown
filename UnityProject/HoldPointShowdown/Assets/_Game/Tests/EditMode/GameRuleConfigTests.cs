@@ -50,6 +50,8 @@ namespace HoldPointShowdown.Tests
         {
             Assert.That(ThirdPersonPlayerController.CrouchKeyboardBinding, Is.EqualTo("<Keyboard>/leftCtrl"));
             Assert.That(ThirdPersonPlayerController.SprintKeyboardBinding, Is.EqualTo("<Keyboard>/leftShift"));
+            Assert.That(ThirdPersonCameraRig.PerspectiveKeyboardBinding, Is.EqualTo("<Keyboard>/v"));
+            Assert.That(ThirdPersonPlayerController.BackwardDoubleTapWindow, Is.InRange(0.25f, 0.4f));
         }
     }
 }

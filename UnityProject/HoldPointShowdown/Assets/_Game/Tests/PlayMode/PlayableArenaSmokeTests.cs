@@ -34,7 +34,15 @@ namespace HoldPointShowdown.Tests
             Assert.That(weapon, Is.Not.Null);
             Assert.That(bots.Length, Is.EqualTo(3));
             Assert.That(chests.Length, Is.EqualTo(2));
-            Assert.That(pickups.Length, Is.GreaterThanOrEqualTo(8));
+            Assert.That(pickups.Length, Is.GreaterThanOrEqualTo(12));
+            Assert.That(Object.FindObjectsByType<LootCrate>(FindObjectsInactive.Exclude).Length,
+                Is.GreaterThanOrEqualTo(20));
+            GameObject grassField = GameObject.Find("Grass Field");
+            Assert.That(grassField, Is.Not.Null);
+            Assert.That(grassField.transform.localScale.x, Is.GreaterThanOrEqualTo(90f));
+            Assert.That(grassField.transform.localScale.z, Is.GreaterThanOrEqualTo(145f));
+            Assert.That(GameObject.Find("West Boundary")?.GetComponent<BoxCollider>(), Is.Not.Null);
+            Assert.That(Camera.main.farClipPlane, Is.GreaterThanOrEqualTo(250f));
             Assert.That(loadout.WeaponCount, Is.EqualTo(1));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
             Assert.That(weapon.Config.Range, Is.GreaterThanOrEqualTo(100f),
@@ -154,6 +162,53 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator LootCrates_OpenAndSpawnRealContents()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            PrototypeInventory inventory = Object.FindAnyObjectByType<PrototypeInventory>();
+            LootCrate[] crates = Object.FindObjectsByType<LootCrate>(FindObjectsInactive.Exclude);
+            Assert.That(crates.Length, Is.GreaterThanOrEqualTo(20));
+            int pickupsBefore = Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length;
+
+            Assert.That(crates[0].TryOpen(inventory), Is.True);
+            Assert.That(crates[0].IsOpen, Is.True);
+            Assert.That(crates[0].SpawnedItemCount, Is.GreaterThanOrEqualTo(2));
+            Assert.That(Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length,
+                Is.GreaterThanOrEqualTo(pickupsBefore + 2));
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyAI_AcquiresOpponentAndAdvancesAcrossMap()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            PrototypeEnemyAI[] bots = Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude);
+            Assert.That(bots.Length, Is.GreaterThanOrEqualTo(3));
+            Vector3[] startingPositions = new Vector3[bots.Length];
+            for (int index = 0; index < bots.Length; index++)
+            {
+                startingPositions[index] = bots[index].transform.position;
+                Assert.That(bots[index].MoveSpeed, Is.GreaterThanOrEqualTo(6f));
+            }
+
+            yield return new WaitForSeconds(1.1f);
+
+            bool anyAdvanced = false;
+            foreach (PrototypeEnemyAI bot in bots)
+            {
+                anyAdvanced |= Vector3.Distance(bot.transform.position, startingPositions[System.Array.IndexOf(bots, bot)]) > 1.5f;
+                Assert.That(bot.HasTarget, Is.True);
+                Assert.That(bot.CurrentIntent, Is.Not.EqualTo(EnemyAIIntent.Advance));
+            }
+            Assert.That(anyAdvanced, Is.True, "NPC 应主动离开出生区推进，而不是原地防守");
+        }
+
+        [UnityTest]
         public IEnumerator CameraRig_AcceptsMouseAim_ZoomsOut_AndControllerCrouches()
         {
             SceneManager.LoadScene("ArenaTown");
@@ -170,6 +225,9 @@ namespace HoldPointShowdown.Tests
 
             Assert.That(cameraRig, Is.Not.Null);
             Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.MoveSpeed, Is.GreaterThanOrEqualTo(6f));
+            Assert.That(controller.SprintSpeed, Is.GreaterThanOrEqualTo(9f));
+            Assert.That(controller.SprintSpeed, Is.GreaterThan(controller.MoveSpeed));
             CapsuleCollider damageHitbox = controller.GetComponentInChildren<CapsuleCollider>();
             Assert.That(damageHitbox, Is.Not.Null, "角色必须包含独立受击判定体");
             Assert.That(damageHitbox.isTrigger, Is.True);
@@ -185,6 +243,13 @@ namespace HoldPointShowdown.Tests
             yield return new WaitForSecondsRealtime(0.35f);
             Assert.That(cameraRig.CurrentDistance, Is.GreaterThan(distanceBefore));
             Assert.That(cameraRig.TargetDistance, Is.EqualTo(12f).Within(0.01f));
+
+            cameraRig.SetFirstPerson(true);
+            yield return null;
+            Assert.That(cameraRig.IsFirstPerson, Is.True);
+            Assert.That(Vector3.Distance(cameraRig.transform.position, controller.transform.position), Is.LessThan(3f));
+            cameraRig.TogglePerspective();
+            Assert.That(cameraRig.IsFirstPerson, Is.False);
 
             float standingHeight = characterController.height;
             controller.SetCrouching(true);
@@ -301,12 +366,14 @@ namespace HoldPointShowdown.Tests
             Assert.That(intruder, Is.Not.Null);
             CharacterController intruderController = intruder.GetComponent<CharacterController>();
             intruderController.enabled = false;
-            intruder.transform.position = new Vector3(0f, 0.8f, -34f);
+            Vector3 intrusionPoint = player.SpawnPosition;
+            intruder.transform.position = intrusionPoint;
             intruderController.enabled = true;
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
 
-            Assert.That(intruder.transform.position.z, Is.GreaterThan(-30f), "闯入敌方基地的角色应被推出保护区");
+            Assert.That(Vector3.Distance(intruder.transform.position, intrusionPoint), Is.GreaterThan(3f),
+                "闯入敌方基地的角色应被推出保护区");
         }
 
         [UnityTest]

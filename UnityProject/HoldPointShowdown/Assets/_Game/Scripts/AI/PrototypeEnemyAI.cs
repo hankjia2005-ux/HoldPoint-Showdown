@@ -6,13 +6,20 @@ using UnityEngine;
 
 namespace HoldPointShowdown.AI
 {
+    public enum EnemyAIIntent
+    {
+        Advance,
+        Pursue,
+        Engage
+    }
+
     [RequireComponent(typeof(CharacterController), typeof(Damageable), typeof(TeamMember))]
     [DisallowMultipleComponent]
     public sealed class PrototypeEnemyAI : MonoBehaviour
     {
-        [SerializeField, Min(1f)] private float _detectionRange = 32f;
-        [SerializeField, Min(1f)] private float _attackRange = 15f;
-        [SerializeField, Min(0.1f)] private float _moveSpeed = 2.8f;
+        [SerializeField, Min(1f)] private float _detectionRange = 72f;
+        [SerializeField, Min(1f)] private float _attackRange = 24f;
+        [SerializeField, Min(0.1f)] private float _moveSpeed = 6.2f;
         [SerializeField, Min(0.1f)] private float _shotsPerSecond = 1.25f;
         [SerializeField, Min(1f)] private float _damage = 8f;
         [SerializeField] private Transform _target;
@@ -24,11 +31,17 @@ namespace HoldPointShowdown.AI
         private CharacterController _controller;
         private PrototypeWeaponEffects _effects;
         private CombatantLifecycle _lifecycle;
+        private MatchPhaseController _match;
         private Vector3 _spawnPosition;
         private Vector3 _patrolTarget;
         private float _nextShotAt;
         private float _nextTargetSearchAt;
         private float _gravityVelocity;
+        private float _avoidanceSign;
+
+        public EnemyAIIntent CurrentIntent { get; private set; } = EnemyAIIntent.Advance;
+        public bool HasTarget => IsTargetValid();
+        public float MoveSpeed => _moveSpeed;
 
         public void Configure(Transform target, Damageable targetDamageable, Transform muzzle)
         {
@@ -53,6 +66,12 @@ namespace HoldPointShowdown.AI
             _effects = GetComponent<PrototypeWeaponEffects>();
             _spawnPosition = transform.position;
             _patrolTarget = _spawnPosition + (transform.right * 3f);
+            _avoidanceSign = transform.position.x >= 0f ? 1f : -1f;
+        }
+
+        private void Start()
+        {
+            _match = Object.FindAnyObjectByType<MatchPhaseController>();
         }
 
         private void OnEnable()
@@ -84,7 +103,7 @@ namespace HoldPointShowdown.AI
 
             if (_target == null || _targetDamageable == null)
             {
-                Patrol();
+                AdvanceTowardBattle();
                 return;
             }
 
@@ -95,19 +114,15 @@ namespace HoldPointShowdown.AI
 
             if (canSeeTarget && distance <= _attackRange)
             {
+                CurrentIntent = EnemyAIIntent.Engage;
                 FaceDirection(planarToTarget);
                 TryShoot();
                 ApplyGravity();
                 return;
             }
 
-            if (distance <= _detectionRange)
-            {
-                Move(planarToTarget.normalized);
-                return;
-            }
-
-            Patrol();
+            CurrentIntent = EnemyAIIntent.Pursue;
+            Move(ResolveSteering(planarToTarget.normalized));
         }
 
         private void AcquireNearestOpponent()
@@ -195,17 +210,57 @@ namespace HoldPointShowdown.AI
             _effects?.PlayExternalShot(origin, endPoint, didHit);
         }
 
-        private void Patrol()
+        private void AdvanceTowardBattle()
         {
-            Vector3 toPatrol = Vector3.ProjectOnPlane(_patrolTarget - transform.position, Vector3.up);
-            if (toPatrol.sqrMagnitude < 0.5f)
+            CurrentIntent = EnemyAIIntent.Advance;
+            float advanceDirection = _teamMember != null && _teamMember.Team == HoldPointShowdown.Core.TeamId.Red
+                ? -1f
+                : 1f;
+            Vector3 destination = new(
+                _spawnPosition.x * 0.35f,
+                transform.position.y,
+                (_match != null && _match.CurrentPhase == HoldPointShowdown.Core.MatchPhase.Scavenge)
+                    ? 0f
+                    : _spawnPosition.z + (advanceDirection * 120f));
+            Vector3 toBattle = Vector3.ProjectOnPlane(destination - transform.position, Vector3.up);
+            if (toBattle.sqrMagnitude < 1f)
             {
                 Vector3 offset = _patrolTarget - _spawnPosition;
                 _patrolTarget = _spawnPosition - offset;
-                toPatrol = Vector3.ProjectOnPlane(_patrolTarget - transform.position, Vector3.up);
+                toBattle = Vector3.ProjectOnPlane(_patrolTarget - transform.position, Vector3.up);
             }
 
-            Move(toPatrol.normalized * 0.55f);
+            Move(ResolveSteering(toBattle.normalized));
+        }
+
+        private Vector3 ResolveSteering(Vector3 desiredDirection)
+        {
+            if (desiredDirection.sqrMagnitude < 0.001f)
+            {
+                return Vector3.zero;
+            }
+
+            Vector3 origin = transform.position + (Vector3.up * 0.8f) + (desiredDirection * 0.7f);
+            if (!Physics.SphereCast(
+                    origin,
+                    0.38f,
+                    desiredDirection,
+                    out RaycastHit hit,
+                    1.4f,
+                    Physics.DefaultRaycastLayers,
+                    QueryTriggerInteraction.Ignore))
+            {
+                return desiredDirection;
+            }
+
+            Damageable blockingDamageable = hit.collider.GetComponentInParent<Damageable>();
+            if (blockingDamageable != null && blockingDamageable == _targetDamageable)
+            {
+                return desiredDirection;
+            }
+
+            Vector3 lateral = Vector3.Cross(Vector3.up, desiredDirection) * _avoidanceSign;
+            return ((desiredDirection * 0.25f) + lateral).normalized;
         }
 
         private void Move(Vector3 direction)

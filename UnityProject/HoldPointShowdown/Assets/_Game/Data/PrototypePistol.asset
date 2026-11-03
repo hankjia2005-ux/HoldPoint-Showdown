@@ -21,7 +21,7 @@ MonoBehaviour:
   _shotsPerSecond: 4
   _pellets: 1
   _spreadDegrees: 0.8
-  _range: 120
+  _range: 180
   _magazineSize: 12
   _startingReserveAmmo: 30
   _reloadSeconds: 1.4

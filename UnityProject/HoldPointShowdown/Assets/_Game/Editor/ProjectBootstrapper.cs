@@ -243,20 +243,21 @@ namespace HoldPointShowdown.Editor
         RenderSettings.fogDensity = 0.006f;
         RenderSettings.ambientLight = new Color(0.62f, 0.68f, 0.74f);
         RenderSettings.reflectionIntensity = 0.65f;
-        QualitySettings.shadowDistance = 110f;
+        QualitySettings.shadowDistance = 180f;
 
         GameObject environment = new("Environment");
         GameObject architecture = new("Architecture");
         GameObject props = new("Gameplay Props");
         GameObject presentation = new("Presentation");
 
-        CreateBlock("Grass Field", environment.transform, new Vector3(0f, -0.75f, 0f), new Vector3(62f, 1.5f, 94f), grass);
-        CreateBlock("Main Street", environment.transform, new Vector3(0f, 0.04f, 0f), new Vector3(13f, 0.12f, 82f), road);
-        CreateBlock("Left Sidewalk", environment.transform, new Vector3(-8f, 0.13f, 0f), new Vector3(3f, 0.26f, 82f), neutral);
-        CreateBlock("Right Sidewalk", environment.transform, new Vector3(8f, 0.13f, 0f), new Vector3(3f, 0.26f, 82f), neutral);
-        CreateBlock("Center Plaza", environment.transform, new Vector3(0f, 0.16f, 0f), new Vector3(19f, 0.32f, 19f), warmWhite);
+        CreateBlock("Grass Field", environment.transform, new Vector3(0f, -0.75f, 0f), new Vector3(92f, 1.5f, 150f), grass);
+        CreateBlock("Main Street", environment.transform, new Vector3(0f, 0.04f, 0f), new Vector3(18f, 0.12f, 136f), road);
+        CreateBlock("Left Sidewalk", environment.transform, new Vector3(-11f, 0.13f, 0f), new Vector3(4f, 0.26f, 136f), neutral);
+        CreateBlock("Right Sidewalk", environment.transform, new Vector3(11f, 0.13f, 0f), new Vector3(4f, 0.26f, 136f), neutral);
+        CreateBlock("Center Plaza", environment.transform, new Vector3(0f, 0.16f, 0f), new Vector3(26f, 0.32f, 26f), warmWhite);
+        CreateBoundaryFences(environment.transform, dark, teal);
 
-        for (int z = -30; z <= 30; z += 6)
+        for (int z = -54; z <= 54; z += 6)
         {
             CreateBlock($"Road Mark {z}", environment.transform, new Vector3(0f, 0.13f, z), new Vector3(0.28f, 0.03f, 2.8f), warmWhite, false);
         }
@@ -265,43 +266,50 @@ namespace HoldPointShowdown.Editor
         MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
         match.Configure(rules);
 
-        GameObject blueChest = CreateTeamBase("Blue Base", -34f, true, TeamId.Blue, match,
+        GameObject blueChest = CreateTeamBase("Blue Base", -58f, true, TeamId.Blue, match,
             architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
-        GameObject redChest = CreateTeamBase("Red Base", 34f, false, TeamId.Red, match,
+        GameObject redChest = CreateTeamBase("Red Base", 58f, false, TeamId.Red, match,
             architecture.transform, props.transform, red, warmWhite, dark, yellow, redShield);
 
-        float[] buildingRows = { -22f, -9f, 9f, 22f };
+        float[] buildingRows = { -43f, -28f, -13f, 13f, 28f, 43f };
         for (int i = 0; i < buildingRows.Length; i++)
         {
             float height = i % 2 == 0 ? 6.4f : 7.8f;
             Material accent = i % 2 == 0 ? coral : teal;
-            CreateShopBuilding($"West Shop {i + 1}", -18f, buildingRows[i], true, height, architecture.transform, warmWhite, accent, dark, glass);
-            CreateShopBuilding($"East Shop {i + 1}", 18f, -buildingRows[i], false, height, architecture.transform, warmWhite, accent, dark, glass);
+            CreateShopBuilding($"West Shop {i + 1}", -24f, buildingRows[i], true, height, architecture.transform, warmWhite, accent, dark, glass, new[] { smg, rifle, shotgun });
+            CreateShopBuilding($"East Shop {i + 1}", 24f, -buildingRows[i], false, height, architecture.transform, warmWhite, accent, dark, glass, new[] { smg, rifle, shotgun });
         }
 
         CreateCentralLandmark(props.transform, dark, teal, yellow);
-        CreateCoverLayout(props.transform, dark, warmWhite, coral, teal);
+        CreateCoverLayout(props.transform, dark, warmWhite, coral, teal, new[] { smg, rifle, shotgun });
         CreateTacticalStructures(props.transform, dark, warmWhite, coral, teal, yellow, glass);
         CreateStreetFurniture(presentation.transform, dark, teal, yellow, grass);
-        CreateSupplyPickup("护甲补给", new Vector3(-6.4f, 1.25f, -11f), props.transform,
+        CreateSupplyPickup("护甲补给", new Vector3(-7.8f, 1.25f, -18f), props.transform,
             SupplyKind.ArmorPlate, ItemArtBuilder.ArmorPrefabPath, balance, teal);
-        CreateSupplyPickup("轻型弹药", new Vector3(6.4f, 1.25f, 11f), props.transform,
+        CreateSupplyPickup("轻型弹药", new Vector3(7.8f, 1.25f, 18f), props.transform,
             SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
-        CreateSupplyPickup("医疗补给", new Vector3(-6.4f, 1.25f, 15f), props.transform,
+        CreateSupplyPickup("医疗补给", new Vector3(-8f, 1.25f, 31f), props.transform,
             SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
-        CreateWeaponPickup("绿色冲锋枪刷新点", new Vector3(6.4f, 1.15f, -15f), props.transform, smg, balance);
-        CreateWeaponPickup("蓝色步枪刷新点", new Vector3(-13.2f, 1.15f, 6.8f), props.transform, rifle, balance);
-        CreateWeaponPickup("紫色霰弹枪刷新点", new Vector3(13.2f, 1.15f, -6.8f), props.transform, shotgun, balance);
-        CreateSupplyPickup("东侧弹药", new Vector3(18f, 1f, 22f), props.transform,
+        CreateWeaponPickup("绿色冲锋枪刷新点", new Vector3(7.6f, 1.15f, -27f), props.transform, smg, balance);
+        CreateWeaponPickup("蓝色步枪刷新点", new Vector3(-15.5f, 1.15f, 11f), props.transform, rifle, balance);
+        CreateWeaponPickup("紫色霰弹枪刷新点", new Vector3(15.5f, 1.15f, -11f), props.transform, shotgun, balance);
+        CreateWeaponPickup("北侧步枪刷新点", new Vector3(7.8f, 1.15f, 43f), props.transform, rifle, balance);
+        CreateWeaponPickup("南侧冲锋枪刷新点", new Vector3(-7.8f, 1.15f, -43f), props.transform, smg, balance);
+        CreateSupplyPickup("东侧弹药", new Vector3(22f, 1f, 34f), props.transform,
             SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
-        CreateSupplyPickup("西侧医疗", new Vector3(-18f, 1f, -22f), props.transform,
+        CreateSupplyPickup("西侧医疗", new Vector3(-22f, 1f, -34f), props.transform,
             SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
+        CreateSupplyPickup("北侧护甲", new Vector3(-21f, 1f, 47f), props.transform,
+            SupplyKind.ArmorPlate, ItemArtBuilder.ArmorPrefabPath, balance, teal);
+        CreateSupplyPickup("南侧弹药", new Vector3(21f, 1f, -47f), props.transform,
+            SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
 
-        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -29.6f), rules);
-        Camera camera = CreateCamera(new Vector3(0f, 4.5f, -42f), Quaternion.identity, true);
+        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.85f, -52.6f), rules);
+        Camera camera = CreateCamera(new Vector3(0f, 4.5f, -67f), Quaternion.identity, true);
         camera.backgroundColor = new Color(0.43f, 0.72f, 0.91f);
         camera.fieldOfView = 70f;
-        camera.farClipPlane = 180f;
+        camera.nearClipPlane = 0.05f;
+        camera.farClipPlane = 280f;
         camera.GetComponent<ThirdPersonCameraRig>().Configure(player.transform);
 
         PrototypeHitscanWeapon weapon = player.AddComponent<PrototypeHitscanWeapon>();
@@ -326,11 +334,11 @@ namespace HoldPointShowdown.Editor
         blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
         redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
 
-        CreateBot("蓝方支援", new Vector3(-3.6f, 0.15f, -30.4f), props.transform,
+        CreateBot("蓝方支援", new Vector3(-3.6f, 0.85f, -53.4f), props.transform,
             rules, match, TeamId.Blue, 0f, rifle);
-        CreateBot("红方守卫甲", new Vector3(-3.6f, 0.15f, 30.4f), props.transform,
+        CreateBot("红方突击甲", new Vector3(-3.6f, 0.85f, 53.4f), props.transform,
             rules, match, TeamId.Red, 25f, rifle);
-        CreateBot("红方守卫乙", new Vector3(3.6f, 0.15f, 30.4f), props.transform,
+        CreateBot("红方突击乙", new Vector3(3.6f, 0.85f, 53.4f), props.transform,
             rules, match, TeamId.Red, 0f, smg);
 
         GameObject hudObject = new("Showcase HUD");
@@ -386,18 +394,20 @@ namespace HoldPointShowdown.Editor
             teamId,
             match,
             shieldRenderer,
-            new Vector3(0f, 0.15f, z + (forward * 7.2f)));
+            new Vector3(0f, 0.85f, z + (forward * 9.5f)));
 
         GameObject chestRoot = new("Shared Supply Chest");
         chestRoot.transform.SetParent(propsParent);
-        Vector3 chestPosition = new(0f, 1.15f, z + (forward * 2.2f));
+        // Keep the third-person camera lane behind the spawn clear. Mirrored side
+        // placement still keeps the chest within a few steps of every respawn.
+        Vector3 chestPosition = new(isBlue ? -5.4f : 5.4f, 1.15f, z + (forward * 2.2f));
         CreateBlock("Chest Body", chestRoot.transform, chestPosition, new Vector3(3.2f, 1.5f, 1.8f), dark);
         CreateBlock("Chest Lid", chestRoot.transform, chestPosition + new Vector3(0f, 0.95f, 0f), new Vector3(3.45f, 0.45f, 2.05f), team);
         CreateBlock("Chest Lock", chestRoot.transform, chestPosition + new Vector3(0f, 0.15f, forward * 0.96f), new Vector3(0.55f, 0.65f, 0.16f), glow, false);
 
         for (int side = -1; side <= 1; side += 2)
         {
-            CreateBlock($"Beacon Pole {side}", root.transform, new Vector3(side * 7.2f, 3.2f, z - (forward * 4.8f)), new Vector3(0.22f, 3.2f, 0.22f), dark, false, PrimitiveType.Cylinder);
+            CreateBlock($"Beacon Pole {side}", root.transform, new Vector3(side * 7.2f, 3.2f, z - (forward * 4.8f)), new Vector3(0.22f, 3.2f, 0.22f), dark, true, PrimitiveType.Cylinder);
             GameObject flag = CreateBlock($"Team Flag {side}", root.transform, new Vector3(side * 7.2f, 5.25f, z - (forward * 4.5f)), new Vector3(1.6f, 1f, 0.16f), team, false);
             flag.transform.rotation = Quaternion.Euler(0f, 0f, side * -5f);
         }
@@ -415,7 +425,8 @@ namespace HoldPointShowdown.Editor
         Material wall,
         Material accent,
         Material dark,
-        Material glass)
+        Material glass,
+        WeaponConfig[] weaponPool)
     {
         GameObject root = new(name);
         root.transform.SetParent(parent);
@@ -482,6 +493,16 @@ namespace HoldPointShowdown.Editor
         CreateBlock("室内顶灯", root.transform,
             new Vector3(x, height - 0.35f, z), new Vector3(1.8f, 0.08f, 0.5f), glass, false);
 
+        // Every shop contains one unmistakable, interactive loot crate. The small
+        // shelf props above are merchandise displays rather than fake containers.
+        CreateLootCrate(
+            $"{name} Indoor Loot Crate",
+            new Vector3(x + (streetDirection * 2.05f), 0.9f, z + 1.75f),
+            root.transform,
+            dark,
+            accent,
+            weaponPool);
+
         for (int side = -1; side <= 1; side += 2)
         {
             CreateBlock($"屋顶女儿墙 {side}", root.transform,
@@ -499,12 +520,27 @@ namespace HoldPointShowdown.Editor
         beacon.AddComponent<ShowcasePropMotion>().Configure(36f, 0.18f, 0.8f);
     }
 
-    private static void CreateCoverLayout(Transform parent, Material dark, Material warmWhite, Material coral, Material teal)
+    private static void CreateBoundaryFences(Transform parent, Material dark, Material accent)
+    {
+        CreateBlock("West Boundary", parent, new Vector3(-45.2f, 1.15f, 0f), new Vector3(0.55f, 2.3f, 146f), dark);
+        CreateBlock("East Boundary", parent, new Vector3(45.2f, 1.15f, 0f), new Vector3(0.55f, 2.3f, 146f), dark);
+        CreateBlock("South Boundary", parent, new Vector3(0f, 1.15f, -73f), new Vector3(90f, 2.3f, 0.55f), accent);
+        CreateBlock("North Boundary", parent, new Vector3(0f, 1.15f, 73f), new Vector3(90f, 2.3f, 0.55f), accent);
+    }
+
+    private static void CreateCoverLayout(
+        Transform parent,
+        Material dark,
+        Material warmWhite,
+        Material coral,
+        Material teal,
+        WeaponConfig[] weaponPool)
     {
         Vector3[] lowWalls =
         {
-            new(-3.8f, 0.9f, -12f), new(3.8f, 0.9f, 12f),
-            new(4.4f, 0.9f, -20f), new(-4.4f, 0.9f, 20f)
+            new(-4.8f, 0.9f, -14f), new(4.8f, 0.9f, 14f),
+            new(5.4f, 0.9f, -29f), new(-5.4f, 0.9f, 29f),
+            new(-4.2f, 0.9f, -43f), new(4.2f, 0.9f, 43f)
         };
 
         for (int i = 0; i < lowWalls.Length; i++)
@@ -515,15 +551,46 @@ namespace HoldPointShowdown.Editor
 
         Vector3[] cratePositions =
         {
-            new(-5.4f, 0.75f, -4.8f), new(5.4f, 0.75f, 4.8f),
-            new(6f, 0.75f, -8f), new(-6f, 0.75f, 8f)
+            new(-6.4f, 0.63f, -6.8f), new(6.4f, 0.63f, 6.8f),
+            new(7f, 0.63f, -18f), new(-7f, 0.63f, 18f),
+            new(-17f, 0.63f, -32f), new(17f, 0.63f, 32f),
+            new(17f, 0.63f, -45f), new(-17f, 0.63f, 45f)
         };
 
         for (int i = 0; i < cratePositions.Length; i++)
         {
-            CreateBlock($"Supply Crate {i + 1}", parent, cratePositions[i], new Vector3(1.5f, 1.5f, 1.5f), i % 2 == 0 ? coral : teal);
-            CreateBlock($"Crate Strap {i + 1}", parent, cratePositions[i] + new Vector3(0f, 0.15f, 0f), new Vector3(1.62f, 0.28f, 1.62f), dark, false);
+            CreateLootCrate(
+                $"可开启补给箱 {i + 1}",
+                cratePositions[i],
+                parent,
+                dark,
+                i % 2 == 0 ? coral : teal,
+                weaponPool);
         }
+    }
+
+    private static void CreateLootCrate(
+        string name,
+        Vector3 position,
+        Transform parent,
+        Material dark,
+        Material accent,
+        WeaponConfig[] weaponPool)
+    {
+        GameObject root = new(name);
+        root.transform.SetParent(parent);
+        root.transform.position = position;
+        CreateBlock("箱体", root.transform, position, new Vector3(1.65f, 1.25f, 1.65f), dark);
+        CreateBlock("箱体饰条", root.transform, position + new Vector3(0f, 0.05f, 0f), new Vector3(1.74f, 0.24f, 1.74f), accent, false);
+
+        GameObject lidPivot = new("箱盖转轴");
+        lidPivot.transform.SetParent(root.transform, true);
+        lidPivot.transform.position = position + new Vector3(0f, 0.66f, -0.72f);
+        CreateBlock("箱盖", lidPivot.transform, position + new Vector3(0f, 0.76f, 0f), new Vector3(1.78f, 0.28f, 1.78f), accent, false);
+        CreateBlock("箱盖锁扣", lidPivot.transform, position + new Vector3(0f, 0.7f, 0.92f), new Vector3(0.38f, 0.42f, 0.16f), dark, false);
+
+        LootCrate crate = root.AddComponent<LootCrate>();
+        crate.Configure(lidPivot.transform, weaponPool);
     }
 
     private static void CreateTacticalStructures(
@@ -537,8 +604,8 @@ namespace HoldPointShowdown.Editor
     {
         for (int side = -1; side <= 1; side += 2)
         {
-            float x = side * 10.8f;
-            float z = side * 3.5f;
+            float x = side * 14.8f;
+            float z = side * 8.5f;
             GameObject stop = new($"战术候车亭 {side}");
             stop.transform.SetParent(parent);
             CreateBlock("后挡板", stop.transform, new Vector3(x, 1.55f, z), new Vector3(0.26f, 3f, 5.8f), glass);
@@ -549,8 +616,9 @@ namespace HoldPointShowdown.Editor
 
         Vector3[] barricades =
         {
-            new(-2.7f, 0.72f, -6.5f), new(2.7f, 0.72f, 6.5f),
-            new(2.8f, 0.72f, -27f), new(-2.8f, 0.72f, 27f)
+            new(-3.7f, 0.72f, -8.5f), new(3.7f, 0.72f, 8.5f),
+            new(3.8f, 0.72f, -24f), new(-3.8f, 0.72f, 24f),
+            new(-3.5f, 0.72f, -39f), new(3.5f, 0.72f, 39f)
         };
         for (int i = 0; i < barricades.Length; i++)
         {
@@ -566,22 +634,24 @@ namespace HoldPointShowdown.Editor
 
     private static void CreateStreetFurniture(Transform parent, Material dark, Material teal, Material glow, Material grass)
     {
-        for (int z = -24; z <= 24; z += 12)
+        for (int z = -48; z <= 48; z += 16)
         {
             for (int side = -1; side <= 1; side += 2)
             {
-                float x = side * 10.2f;
-                CreateBlock($"Lamp Pole {side} {z}", parent, new Vector3(x, 2.5f, z), new Vector3(0.16f, 2.5f, 0.16f), dark, false, PrimitiveType.Cylinder);
+                float x = side * 13.2f;
+                CreateBlock($"Lamp Pole {side} {z}", parent, new Vector3(x, 2.5f, z), new Vector3(0.16f, 2.5f, 0.16f), dark, true, PrimitiveType.Cylinder);
                 CreateBlock($"Lamp Head {side} {z}", parent, new Vector3(x, 5.05f, z), new Vector3(0.65f, 0.45f, 0.65f), glow, false, PrimitiveType.Sphere);
             }
         }
 
         Vector3[] treePositions =
         {
-            new(-27f, 0f, -28f), new(27f, 0f, -28f),
-            new(-27f, 0f, -12f), new(27f, 0f, -12f),
-            new(-27f, 0f, 12f), new(27f, 0f, 12f),
-            new(-27f, 0f, 28f), new(27f, 0f, 28f)
+            new(-38f, 0f, -49f), new(38f, 0f, -49f),
+            new(-38f, 0f, -31f), new(38f, 0f, -31f),
+            new(-38f, 0f, -11f), new(38f, 0f, -11f),
+            new(-38f, 0f, 11f), new(38f, 0f, 11f),
+            new(-38f, 0f, 31f), new(38f, 0f, 31f),
+            new(-38f, 0f, 49f), new(38f, 0f, 49f)
         };
 
         for (int i = 0; i < treePositions.Length; i++)

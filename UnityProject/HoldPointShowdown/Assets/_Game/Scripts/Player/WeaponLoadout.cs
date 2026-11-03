@@ -35,6 +35,36 @@ namespace HoldPointShowdown.Player
         public WeaponConfig ActiveWeapon => _activeIndex >= 0 && _activeIndex < _slots.Count ? _slots[_activeIndex].Config : null;
         public event Action<WeaponConfig> ActiveWeaponChanged;
 
+        public bool TryRemoveActiveForStorage(
+            out WeaponConfig config,
+            out int magazineAmmo,
+            out int reserveAmmo)
+        {
+            config = null;
+            magazineAmmo = 0;
+            reserveAmmo = 0;
+            if (_activeIndex < 0 || _activeIndex >= _slots.Count || _slots.Count <= 1)
+            {
+                return false;
+            }
+
+            SaveActiveAmmo();
+            int storedIndex = _activeIndex;
+            WeaponSlot storedSlot = _slots[storedIndex];
+            if (storedSlot.Config == null || IsStarter(storedSlot.Config))
+            {
+                return false;
+            }
+
+            config = storedSlot.Config;
+            magazineAmmo = storedSlot.Magazine;
+            reserveAmmo = storedSlot.Reserve;
+            _slots.RemoveAt(storedIndex);
+            _activeIndex = -1;
+            EquipIndex(Mathf.Clamp(storedIndex, 0, _slots.Count - 1));
+            return true;
+        }
+
         public void Configure(PrototypeHitscanWeapon weapon, int maxWeapons, params WeaponConfig[] startingWeapons)
         {
             _weapon = weapon;
@@ -244,19 +274,7 @@ namespace HoldPointShowdown.Player
             Vector3 position,
             float pickupDelay)
         {
-            if (config == null || config.ModelPrefab == null)
-            {
-                return;
-            }
-
-            GameObject root = new($"掉落 · {config.DisplayName}");
-            root.transform.position = position;
-            GameObject visual = Instantiate(config.ModelPrefab, root.transform);
-            visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(0f, 90f, 0f));
-            visual.transform.localScale *= 1.15f;
-            visual.AddComponent<ShowcasePropMotion>().Configure(48f, 0.14f, 1.15f);
-            WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
-            pickup.ConfigureDroppedWeapon(config, magazineAmmo, reserveAmmo, visual, pickupDelay, 60f);
+            WorldItemPickup.CreateWeaponDrop(config, magazineAmmo, reserveAmmo, position, pickupDelay, 60f);
         }
 
         private void Update()
