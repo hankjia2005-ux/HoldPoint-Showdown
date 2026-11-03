@@ -17,10 +17,17 @@ namespace HoldPointShowdown.Presentation
         private Vector3 _lastWorldPosition;
         private Vector3 _modelStartPosition;
         private float _stepPhase;
+        private float _crouchBlend;
+        private bool _isCrouching;
 
         public Transform Muzzle => _muzzle;
         public Transform WeaponSocket => _weaponSocket != null ? _weaponSocket : _muzzle;
         public Renderer[] Renderers => _renderers;
+
+        public void SetCrouching(bool crouching)
+        {
+            _isCrouching = crouching;
+        }
 
         public void Configure(
             Transform modelRoot,
@@ -74,15 +81,19 @@ namespace HoldPointShowdown.Presentation
 
             float activity = Mathf.InverseLerp(0.05f, 2f, speed);
             float swing = Mathf.Sin(_stepPhase * Mathf.PI) * 28f * activity;
+            _crouchBlend = Mathf.MoveTowards(
+                _crouchBlend,
+                _isCrouching ? 1f : 0f,
+                Time.deltaTime * 8f);
             SetPivotRotation(_leftArmPivot, swing);
             SetPivotRotation(_rightArmPivot, -swing * 0.55f);
-            SetPivotRotation(_leftLegPivot, -swing);
-            SetPivotRotation(_rightLegPivot, swing);
+            SetPivotRotation(_leftLegPivot, Mathf.Lerp(-swing, 32f - (swing * 0.25f), _crouchBlend));
+            SetPivotRotation(_rightLegPivot, Mathf.Lerp(swing, 32f + (swing * 0.25f), _crouchBlend));
 
             float bob = Mathf.Abs(Mathf.Sin(_stepPhase * Mathf.PI)) * 0.045f * activity;
             _modelRoot.localPosition = Vector3.Lerp(
                 _modelRoot.localPosition,
-                _modelStartPosition + (Vector3.up * bob),
+                _modelStartPosition + (Vector3.up * (bob - (0.22f * _crouchBlend))),
                 1f - Mathf.Exp(-18f * Time.deltaTime));
         }
 

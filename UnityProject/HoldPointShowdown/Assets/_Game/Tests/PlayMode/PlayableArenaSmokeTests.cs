@@ -89,6 +89,43 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator CameraRig_AcceptsMouseAim_ZoomsOut_AndControllerCrouches()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            ThirdPersonCameraRig cameraRig = Object.FindAnyObjectByType<ThirdPersonCameraRig>();
+            ThirdPersonPlayerController controller = Object.FindAnyObjectByType<ThirdPersonPlayerController>();
+            CharacterController characterController = controller.GetComponent<CharacterController>();
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+
+            Assert.That(cameraRig, Is.Not.Null);
+            Assert.That(controller, Is.Not.Null);
+            Vector2 lookBefore = cameraRig.LookAngles;
+            cameraRig.ApplyLookDelta(new Vector2(50f, -20f), true);
+            Assert.That(cameraRig.LookAngles.x, Is.GreaterThan(lookBefore.x));
+            Assert.That(cameraRig.LookAngles.y, Is.GreaterThan(lookBefore.y));
+
+            float distanceBefore = cameraRig.CurrentDistance;
+            cameraRig.SetZoomDistance(12f);
+            yield return new WaitForSecondsRealtime(0.35f);
+            Assert.That(cameraRig.CurrentDistance, Is.GreaterThan(distanceBefore));
+            Assert.That(cameraRig.TargetDistance, Is.EqualTo(12f).Within(0.01f));
+
+            float standingHeight = characterController.height;
+            controller.SetCrouching(true);
+            Assert.That(controller.IsCrouching, Is.True);
+            Assert.That(characterController.height, Is.LessThan(standingHeight));
+            controller.SetCrouching(false);
+            Assert.That(controller.IsCrouching, Is.False);
+            Assert.That(characterController.height, Is.EqualTo(standingHeight).Within(0.01f));
+        }
+
+        [UnityTest]
         public IEnumerator PhaseOneDeath_DropsLoot_AndRespawnsAtBlueBaseWithStarterOnly()
         {
             SceneManager.LoadScene("ArenaTown");

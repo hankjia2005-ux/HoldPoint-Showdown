@@ -297,10 +297,10 @@ namespace HoldPointShowdown.Editor
         CreateSupplyPickup("西侧医疗", new Vector3(-18f, 1f, -22f), props.transform,
             SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
 
-        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -35.6f), rules);
+        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -29.6f), rules);
         Camera camera = CreateCamera(new Vector3(0f, 4.5f, -42f), Quaternion.identity, true);
         camera.backgroundColor = new Color(0.43f, 0.72f, 0.91f);
-        camera.fieldOfView = 64f;
+        camera.fieldOfView = 70f;
         camera.farClipPlane = 180f;
         camera.GetComponent<ThirdPersonCameraRig>().Configure(player.transform);
 
@@ -326,11 +326,11 @@ namespace HoldPointShowdown.Editor
         blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
         redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
 
-        CreateBot("蓝方支援", new Vector3(-3.6f, 0.15f, -34.8f), props.transform,
+        CreateBot("蓝方支援", new Vector3(-3.6f, 0.15f, -30.4f), props.transform,
             rules, match, TeamId.Blue, 0f, rifle);
-        CreateBot("红方守卫甲", new Vector3(-3.6f, 0.15f, 34.8f), props.transform,
+        CreateBot("红方守卫甲", new Vector3(-3.6f, 0.15f, 30.4f), props.transform,
             rules, match, TeamId.Red, 25f, rifle);
-        CreateBot("红方守卫乙", new Vector3(3.6f, 0.15f, 34.8f), props.transform,
+        CreateBot("红方守卫乙", new Vector3(3.6f, 0.15f, 30.4f), props.transform,
             rules, match, TeamId.Red, 0f, smg);
 
         GameObject hudObject = new("Showcase HUD");
@@ -364,7 +364,7 @@ namespace HoldPointShowdown.Editor
         CreateBlock("Roof", root.transform, new Vector3(0f, 5.9f, z - (forward * 4.4f)), new Vector3(19f, 0.55f, 2.2f), team);
         CreateBlock("Base Sign", root.transform, new Vector3(0f, 4.1f, z - (forward * 5.55f)), new Vector3(7f, 1.25f, 0.24f), warmWhite, false);
 
-        GameObject spawnRing = CreateBlock("Spawn Ring", root.transform, new Vector3(0f, 0.72f, z - (forward * 1.6f)), new Vector3(3.2f, 0.08f, 3.2f), glow, false, PrimitiveType.Cylinder);
+        GameObject spawnRing = CreateBlock("Spawn Ring", root.transform, new Vector3(0f, 0.72f, z + (forward * 4.4f)), new Vector3(3.2f, 0.08f, 3.2f), glow, false, PrimitiveType.Cylinder);
         spawnRing.transform.rotation = Quaternion.identity;
 
         GameObject shieldObject = CreateBlock("Protection Shield", root.transform, new Vector3(0f, 3.4f, z), new Vector3(10.4f, 6.2f, 8.4f), shield, false, PrimitiveType.Sphere);

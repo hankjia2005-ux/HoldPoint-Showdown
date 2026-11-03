@@ -64,9 +64,17 @@ namespace HoldPointShowdown.UI
             DrawResult(width, height);
 
             GUI.Label(
-                new Rect((width * 0.5f) - 310f, height - 38f, 620f, 24f),
-                "WASD 移动  空格 跳跃  左键 射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 消耗品箱  F11/Alt+Enter 全屏",
+                new Rect((width * 0.5f) - 390f, height - 38f, 780f, 24f),
+                "WASD 移动  左Ctrl 下蹲  鼠标瞄准  滚轮缩放镜头  左键射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 箱子  F11/Alt+Enter 全屏",
                 _smallStyle);
+
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                GUI.Label(
+                    new Rect((width * 0.5f) - 220f, (height * 0.5f) + 44f, 440f, 36f),
+                    "点击画面重新锁定鼠标并控制准星",
+                    _messageStyle);
+            }
 
             GUI.matrix = previousMatrix;
         }

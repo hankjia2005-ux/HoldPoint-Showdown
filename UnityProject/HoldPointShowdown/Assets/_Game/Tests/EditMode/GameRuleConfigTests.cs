@@ -1,5 +1,6 @@
 using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.Player;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -42,6 +43,12 @@ namespace HoldPointShowdown.Tests
             Assert.That(_rules.GetRespawnDelay(MatchPhase.Raid), Is.EqualTo(5f));
             Assert.That(_rules.GetRespawnDelay(MatchPhase.FinalBattle), Is.EqualTo(5f));
             Assert.That(_rules.FinalBattleLives, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Controls_KeepSForBackward_AndUseLeftControlForCrouch()
+        {
+            Assert.That(ThirdPersonPlayerController.CrouchKeyboardBinding, Is.EqualTo("<Keyboard>/leftCtrl"));
         }
     }
 }
