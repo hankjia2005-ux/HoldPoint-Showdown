@@ -28,7 +28,6 @@ namespace HoldPointShowdown.UI
         private GUIStyle _messageStyle;
         private GUIStyle _resultStyle;
         private GUIStyle _resultButtonStyle;
-        private bool _resultCursorReleased;
 
         public void Configure(
             MatchPhaseController match,
@@ -72,7 +71,8 @@ namespace HoldPointShowdown.UI
                 "WASD 移动  按住 Shift 疾跑  双击 S 蹲走  V 切换视角  左键射击  R 换弹  E 交互  Esc 暂停  F11 全屏",
                 _smallStyle);
 
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (Cursor.lockState != CursorLockMode.Locked
+                && (_match == null || _match.Result == MatchResult.None))
             {
                 GUI.Label(
                     new Rect((width * 0.5f) - 220f, (height * 0.5f) + 44f, 440f, 36f),
@@ -172,16 +172,10 @@ namespace HoldPointShowdown.UI
         {
             if (_match == null || _match.Result == MatchResult.None)
             {
-                _resultCursorReleased = false;
                 return;
             }
 
-            if (!_resultCursorReleased)
-            {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-                _resultCursorReleased = true;
-            }
+            PauseMenuController.ReleaseCursorForUi();
 
             Rect panel = new((width * 0.5f) - 330f, (height * 0.5f) - 235f, 660f, 470f);
             GUI.Box(panel, GUIContent.none, _panelStyle);

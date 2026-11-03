@@ -116,7 +116,7 @@ namespace HoldPointShowdown.Player
             _fireAction.Enable();
             _reloadAction.Enable();
             _cursorUnlockedByUser = false;
-            SetCursorLocked(true);
+            SetCursorLocked(PauseMenuController.ShouldCaptureGameplayCursor);
         }
 
         private void OnDisable()
@@ -142,7 +142,7 @@ namespace HoldPointShowdown.Player
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (hasFocus && !_cursorUnlockedByUser)
+            if (hasFocus && !_cursorUnlockedByUser && PauseMenuController.ShouldCaptureGameplayCursor)
             {
                 SetCursorLocked(true);
             }
@@ -150,7 +150,7 @@ namespace HoldPointShowdown.Player
 
         private void Update()
         {
-            if (PauseMenuController.IsPaused)
+            if (!PauseMenuController.ShouldCaptureGameplayCursor)
             {
                 SetSprinting(false);
                 return;

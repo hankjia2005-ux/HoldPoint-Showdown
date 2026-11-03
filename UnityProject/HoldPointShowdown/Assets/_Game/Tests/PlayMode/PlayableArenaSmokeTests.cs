@@ -19,6 +19,92 @@ namespace HoldPointShowdown.Tests
     public sealed class PlayableArenaSmokeTests
     {
         [UnityTest]
+        public IEnumerator RuntimeRules_AreIsolatedFromTheProjectAsset()
+        {
+            GameRuleConfig sourceRules = ScriptableObject.CreateInstance<GameRuleConfig>();
+            sourceRules.SetDemoValues(120f, 270f, 540f);
+            GameObject flowObject = new("运行时规则隔离测试");
+            flowObject.SetActive(false);
+            MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
+            match.Configure(sourceRules);
+
+            Assert.That(match.Rules, Is.Not.SameAs(sourceRules),
+                "运行时必须使用规则副本，测试和自定义房间不能污染项目资产");
+            match.Rules.SetDemoValues(0.1f, 0.2f, 0.4f);
+            Assert.That(sourceRules.ScavengeEndsAt, Is.EqualTo(120f));
+            Assert.That(sourceRules.RaidEndsAt, Is.EqualTo(270f));
+            Assert.That(sourceRules.MatchEndsAt, Is.EqualTo(540f));
+
+            Object.Destroy(flowObject);
+            Object.Destroy(sourceRules);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator MatchTimer_TransitionsThroughAllThreePhases_InOrder()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+
+            match.Rules.SetDemoValues(1f, 1.35f, 1.7f, 0.05f, 0.05f, 0.05f, 2);
+            match.StartMatch();
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Scavenge));
+
+            yield return new WaitForSeconds(1.08f);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Raid));
+            yield return new WaitForSeconds(0.36f);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.FinalBattle));
+            yield return new WaitForSeconds(0.36f);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Complete));
+            Assert.That(match.Result, Is.EqualTo(MatchResult.Draw));
+        }
+
+        [UnityTest]
+        public IEnumerator EscapePause_AndMatchResult_KeepCursorAvailableForUi()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            PauseMenuController pause = Object.FindAnyObjectByType<PauseMenuController>();
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            Assert.That(pause, Is.Not.Null);
+
+            pause.ProcessEscape();
+            bool paused = PauseMenuController.IsPaused;
+            bool releasedWhilePaused = Cursor.lockState == CursorLockMode.None && Cursor.visible;
+            pause.ProcessEscape();
+            Assert.That(paused, Is.True, "Esc 应打开暂停菜单");
+            Assert.That(releasedWhilePaused, Is.True, "Esc 暂停时必须显示并释放鼠标");
+            Assert.That(PauseMenuController.IsPaused, Is.False);
+
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+            match.Rules.SetDemoValues(1f, 1.1f, 1.25f);
+            match.StartMatch();
+            yield return new WaitForSeconds(1.35f);
+            yield return null;
+
+            Assert.That(match.Result, Is.EqualTo(MatchResult.Draw));
+            Assert.That(PauseMenuController.IsMatchEnded, Is.True);
+            Assert.That(PauseMenuController.ShouldCaptureGameplayCursor, Is.False);
+            Assert.That(Cursor.lockState, Is.EqualTo(CursorLockMode.None));
+            Assert.That(Cursor.visible, Is.True);
+            pause.ProcessEscape();
+            Assert.That(Cursor.lockState, Is.EqualTo(CursorLockMode.None),
+                "结算界面按 Esc 后鼠标不能被玩家控制器重新锁定");
+        }
+
+        [UnityTest]
         public IEnumerator MainMenu_HasClickableChineseEntryPoints()
         {
             SceneManager.LoadScene("MainMenu");

@@ -15,6 +15,7 @@ namespace HoldPointShowdown.GameFlow
 
         private float _matchStartedAt;
         private Coroutine _resultCheckRoutine;
+        private GameRuleConfig _runtimeRules;
 
         public event Action<MatchPhase, MatchPhase> PhaseChanged;
         public event Action<MatchResult> MatchEnded;
@@ -24,7 +25,7 @@ namespace HoldPointShowdown.GameFlow
         public MatchResult Result { get; private set; } = MatchResult.None;
         public float ElapsedSeconds { get; private set; }
         public bool IsRunning { get; private set; }
-        public GameRuleConfig Rules => _rules;
+        public GameRuleConfig Rules => GetActiveRules();
         public string LatestMessage { get; private set; } = string.Empty;
         public float MessageVisibleUntil { get; private set; }
         public IReadOnlyList<CombatantLifecycle> Combatants => _combatants;
@@ -33,16 +34,17 @@ namespace HoldPointShowdown.GameFlow
         {
             get
             {
-                if (_rules == null)
+                GameRuleConfig rules = GetActiveRules();
+                if (rules == null)
                 {
                     return 0f;
                 }
 
                 float end = CurrentPhase switch
                 {
-                    MatchPhase.Scavenge => _rules.ScavengeEndsAt,
-                    MatchPhase.Raid => _rules.RaidEndsAt,
-                    MatchPhase.FinalBattle => _rules.MatchEndsAt,
+                    MatchPhase.Scavenge => rules.ScavengeEndsAt,
+                    MatchPhase.Raid => rules.RaidEndsAt,
+                    MatchPhase.FinalBattle => rules.MatchEndsAt,
                     _ => ElapsedSeconds
                 };
                 return Mathf.Max(0f, end - ElapsedSeconds);
@@ -51,7 +53,14 @@ namespace HoldPointShowdown.GameFlow
 
         public void Configure(GameRuleConfig rules)
         {
+            if (_runtimeRules != null)
+            {
+                Destroy(_runtimeRules);
+                _runtimeRules = null;
+            }
+
             _rules = rules;
+            CreateRuntimeRulesIfNeeded();
         }
 
         public void RegisterCombatant(CombatantLifecycle combatant)
@@ -64,7 +73,8 @@ namespace HoldPointShowdown.GameFlow
 
         public void StartMatch()
         {
-            if (_rules == null)
+            GameRuleConfig rules = GetActiveRules();
+            if (rules == null)
             {
                 Debug.LogError("Cannot start match without a GameRuleConfig.", this);
                 return;
@@ -115,7 +125,7 @@ namespace HoldPointShowdown.GameFlow
                     3f);
             }
 
-            combatant.BeginRespawn(_rules.GetRespawnDelay(CurrentPhase));
+            combatant.BeginRespawn(GetActiveRules().GetRespawnDelay(CurrentPhase));
         }
 
         public int GetRemainingTeamMembers(TeamId team)
@@ -158,6 +168,11 @@ namespace HoldPointShowdown.GameFlow
             MessageRaised?.Invoke(LatestMessage);
         }
 
+        private void Awake()
+        {
+            CreateRuntimeRulesIfNeeded();
+        }
+
         private void Start()
         {
             if (_startOnAwake)
@@ -168,13 +183,14 @@ namespace HoldPointShowdown.GameFlow
 
         private void Update()
         {
-            if (!IsRunning || _rules == null)
+            GameRuleConfig rules = GetActiveRules();
+            if (!IsRunning || rules == null)
             {
                 return;
             }
 
             ElapsedSeconds = Time.time - _matchStartedAt;
-            MatchPhase nextPhase = _rules.ResolvePhase(ElapsedSeconds);
+            MatchPhase nextPhase = rules.ResolvePhase(ElapsedSeconds);
             if (nextPhase == MatchPhase.Complete)
             {
                 EndMatch(MatchResult.Draw);
@@ -200,7 +216,7 @@ namespace HoldPointShowdown.GameFlow
             {
                 foreach (CombatantLifecycle combatant in _combatants)
                 {
-                    combatant?.PrepareForFinalBattle(_rules.FinalBattleLives);
+                    combatant?.PrepareForFinalBattle(GetActiveRules().FinalBattleLives);
                 }
 
                 RaiseMessage("终局之战开启：每人仅剩 2 条命", 5f);
@@ -268,6 +284,38 @@ namespace HoldPointShowdown.GameFlow
         {
             _combatants.Clear();
             _combatants.AddRange(UnityEngine.Object.FindObjectsByType<CombatantLifecycle>(FindObjectsInactive.Exclude));
+        }
+
+        private GameRuleConfig GetActiveRules()
+        {
+            CreateRuntimeRulesIfNeeded();
+            return _runtimeRules != null ? _runtimeRules : _rules;
+        }
+
+        private void CreateRuntimeRulesIfNeeded()
+        {
+            if (!Application.isPlaying || _rules == null)
+            {
+                return;
+            }
+
+            if (_runtimeRules != null)
+            {
+                return;
+            }
+
+            _runtimeRules = Instantiate(_rules);
+            _runtimeRules.name = $"{_rules.name}（运行时副本）";
+            _runtimeRules.hideFlags = HideFlags.DontSave;
+        }
+
+        private void OnDestroy()
+        {
+            if (_runtimeRules != null)
+            {
+                Destroy(_runtimeRules);
+                _runtimeRules = null;
+            }
         }
 
         private static string FormatTeam(TeamId team)

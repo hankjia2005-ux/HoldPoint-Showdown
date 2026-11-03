@@ -15,15 +15,51 @@ namespace HoldPointShowdown.UI
         private Texture2D _backdrop;
 
         public static bool IsPaused { get; private set; }
+        public static bool IsMatchEnded { get; private set; }
+        public static bool ShouldCaptureGameplayCursor => !IsPaused && !IsMatchEnded;
 
         public static void TogglePaused()
         {
+            if (IsMatchEnded)
+            {
+                ReleaseCursorForUi();
+                return;
+            }
+
             SetPaused(!IsPaused);
+        }
+
+        public static void ReleaseCursorForUi()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         public void Configure(MatchPhaseController match)
         {
             _match = match;
+        }
+
+        public void ProcessEscape()
+        {
+            if (_match != null && _match.Result != MatchResult.None)
+            {
+                ReleaseCursorForUi();
+                return;
+            }
+
+            TogglePaused();
+        }
+
+        private void Awake()
+        {
+            IsPaused = false;
+            IsMatchEnded = _match != null && _match.Result != MatchResult.None;
+            Time.timeScale = 1f;
+            if (IsMatchEnded)
+            {
+                ReleaseCursorForUi();
+            }
         }
 
         private void OnEnable()
@@ -34,28 +70,43 @@ namespace HoldPointShowdown.UI
         private void OnDisable()
         {
             if (_match != null) _match.MatchEnded -= HandleMatchEnded;
-            SetPaused(false);
+            IsPaused = false;
+            IsMatchEnded = false;
+            Time.timeScale = 1f;
+            ReleaseCursorForUi();
         }
 
         private void Update()
         {
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame
-                && (_match == null || _match.Result == MatchResult.None))
+            if (_match != null && _match.Result != MatchResult.None && !IsMatchEnded)
             {
-                TogglePaused();
+                HandleMatchEnded(_match.Result);
+            }
+
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                ProcessEscape();
             }
         }
 
         private void HandleMatchEnded(MatchResult _)
         {
             IsPaused = false;
+            IsMatchEnded = true;
             Time.timeScale = 1f;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            ReleaseCursorForUi();
         }
 
         private static void SetPaused(bool paused)
         {
+            if (IsMatchEnded)
+            {
+                IsPaused = false;
+                Time.timeScale = 1f;
+                ReleaseCursorForUi();
+                return;
+            }
+
             IsPaused = paused;
             Time.timeScale = paused ? 0f : 1f;
             Cursor.lockState = paused ? CursorLockMode.None : CursorLockMode.Locked;
