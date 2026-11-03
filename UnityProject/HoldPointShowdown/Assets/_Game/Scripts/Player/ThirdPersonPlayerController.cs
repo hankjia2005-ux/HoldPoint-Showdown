@@ -30,6 +30,9 @@ namespace HoldPointShowdown.Player
     private bool _isCrouching;
     private float _standingHeight;
     private Vector3 _standingCenter;
+    private Damageable _damageable;
+    private Vector3 _spawnPosition;
+    private Quaternion _spawnRotation;
 
     public void Configure(Camera playerCamera, PrototypeHitscanWeapon weapon)
     {
@@ -40,6 +43,9 @@ namespace HoldPointShowdown.Player
     private void Awake()
     {
         _characterController = GetComponent<CharacterController>();
+        _damageable = GetComponent<Damageable>();
+        _spawnPosition = transform.position;
+        _spawnRotation = transform.rotation;
         _standingHeight = _characterController.height;
         _standingCenter = _characterController.center;
 
@@ -70,6 +76,10 @@ namespace HoldPointShowdown.Player
         _fireAction.Enable();
         _reloadAction.Enable();
         _cursorAction.Enable();
+        if (_damageable != null)
+        {
+            _damageable.ResetCompleted += HandleRespawn;
+        }
         SetCursorLocked(true);
     }
 
@@ -81,6 +91,10 @@ namespace HoldPointShowdown.Player
         _fireAction.Disable();
         _reloadAction.Disable();
         _cursorAction.Disable();
+        if (_damageable != null)
+        {
+            _damageable.ResetCompleted -= HandleRespawn;
+        }
     }
 
     private void OnDestroy()
@@ -98,6 +112,11 @@ namespace HoldPointShowdown.Player
         if (_cursorAction.WasPressedThisFrame())
         {
             SetCursorLocked(Cursor.lockState != CursorLockMode.Locked);
+        }
+
+        if (_damageable != null && !_damageable.IsAlive)
+        {
+            return;
         }
 
         if (_crouchAction.WasPressedThisFrame())
@@ -166,6 +185,16 @@ namespace HoldPointShowdown.Player
             ? _standingCenter - new Vector3(0f, _standingHeight * 0.2f, 0f)
             : _standingCenter;
     }
+
+        private void HandleRespawn(Damageable _)
+        {
+            _verticalVelocity = 0f;
+            SetCrouching(false);
+            bool wasEnabled = _characterController.enabled;
+            _characterController.enabled = false;
+            transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+            _characterController.enabled = wasEnabled;
+        }
 
         private static void SetCursorLocked(bool locked)
         {

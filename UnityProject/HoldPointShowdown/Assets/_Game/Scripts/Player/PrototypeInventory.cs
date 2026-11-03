@@ -52,6 +52,11 @@ namespace HoldPointShowdown.Player
 
         public bool TryAddWeapon(WeaponConfig config)
         {
+            return TryAddWeapon(config, -1, -1);
+        }
+
+        public bool TryAddWeapon(WeaponConfig config, int magazineAmmo, int reserveAmmo)
+        {
             if (_loadout == null || config == null)
             {
                 return false;
@@ -59,11 +64,11 @@ namespace HoldPointShowdown.Player
 
             if (_loadout.Contains(config))
             {
-                return _loadout.TryAddWeapon(config);
+                return _loadout.TryAddWeapon(config, true, magazineAmmo, reserveAmmo);
             }
 
             int slotCost = _balance != null ? _balance.WeaponSlotCost : 3;
-            return FreeSlots >= slotCost && _loadout.TryAddWeapon(config);
+            return FreeSlots >= slotCost && _loadout.TryAddWeapon(config, true, magazineAmmo, reserveAmmo);
         }
 
         public int GetCount(SupplyKind kind)

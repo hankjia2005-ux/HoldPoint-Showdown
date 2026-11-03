@@ -14,9 +14,12 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField] private WeaponConfig _weapon;
         [SerializeField, Min(0f)] private float _respawnSeconds = 22f;
         [SerializeField] private GameObject _visualRoot;
+        [SerializeField] private int _weaponMagazine = -1;
+        [SerializeField] private int _weaponReserve = -1;
 
         private SphereCollider _trigger;
         private bool _available = true;
+        private float _collectableAt;
 
         public bool IsWeapon => _weapon != null;
         public bool IsAvailable => _available;
@@ -28,8 +31,11 @@ namespace HoldPointShowdown.Gameplay
             _supplyKind = kind;
             _amount = Mathf.Max(1, amount);
             _weapon = null;
+            _weaponMagazine = -1;
+            _weaponReserve = -1;
             _respawnSeconds = Mathf.Max(0f, respawnSeconds);
             _visualRoot = visualRoot;
+            _collectableAt = 0f;
             EnsureTrigger();
         }
 
@@ -37,20 +43,40 @@ namespace HoldPointShowdown.Gameplay
         {
             _weapon = weapon;
             _amount = 1;
+            _weaponMagazine = -1;
+            _weaponReserve = -1;
             _respawnSeconds = Mathf.Max(0f, respawnSeconds);
             _visualRoot = visualRoot;
+            _collectableAt = 0f;
+            EnsureTrigger();
+        }
+
+        public void ConfigureDroppedWeapon(
+            WeaponConfig weapon,
+            int magazineAmmo,
+            int reserveAmmo,
+            GameObject visualRoot,
+            float pickupDelay = 0.8f)
+        {
+            _weapon = weapon;
+            _amount = 1;
+            _weaponMagazine = Mathf.Max(0, magazineAmmo);
+            _weaponReserve = Mathf.Max(0, reserveAmmo);
+            _respawnSeconds = 0f;
+            _visualRoot = visualRoot;
+            _collectableAt = Time.time + Mathf.Max(0f, pickupDelay);
             EnsureTrigger();
         }
 
         public bool TryCollect(PrototypeInventory inventory)
         {
-            if (!_available || inventory == null)
+            if (!_available || inventory == null || Time.time < _collectableAt)
             {
                 return false;
             }
 
             bool collected = IsWeapon
-                ? inventory.TryAddWeapon(_weapon)
+                ? inventory.TryAddWeapon(_weapon, _weaponMagazine, _weaponReserve)
                 : inventory.TryAdd(_supplyKind, _amount);
             if (!collected)
             {
@@ -85,10 +111,12 @@ namespace HoldPointShowdown.Gameplay
             SetAvailable(false);
             if (_respawnSeconds <= 0f)
             {
+                Destroy(gameObject);
                 yield break;
             }
 
             yield return new WaitForSeconds(_respawnSeconds);
+            _collectableAt = 0f;
             SetAvailable(true);
         }
 

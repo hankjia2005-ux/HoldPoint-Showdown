@@ -60,7 +60,11 @@ namespace HoldPointShowdown.Player
             return config != null && _slots.Exists(slot => slot.Config == config || slot.Config.ItemId == config.ItemId);
         }
 
-        public bool TryAddWeapon(WeaponConfig config, bool autoEquip = true)
+        public bool TryAddWeapon(
+            WeaponConfig config,
+            bool autoEquip = true,
+            int magazineAmmo = -1,
+            int reserveAmmo = -1)
         {
             if (config == null)
             {
@@ -70,10 +74,13 @@ namespace HoldPointShowdown.Player
             int existing = _slots.FindIndex(slot => slot.Config == config || slot.Config.ItemId == config.ItemId);
             if (existing >= 0)
             {
-                _slots[existing].Reserve += config.AmmoPerPickup;
+                int ammoToAdd = magazineAmmo >= 0 || reserveAmmo >= 0
+                    ? Mathf.Max(0, magazineAmmo) + Mathf.Max(0, reserveAmmo)
+                    : config.AmmoPerPickup;
+                _slots[existing].Reserve += ammoToAdd;
                 if (existing == _activeIndex && _weapon != null)
                 {
-                    _weapon.AddReserveAmmo(config.AmmoPerPickup);
+                    _weapon.AddReserveAmmo(ammoToAdd);
                 }
 
                 return true;
@@ -84,7 +91,7 @@ namespace HoldPointShowdown.Player
                 return false;
             }
 
-            AddSlot(config);
+            AddSlot(config, magazineAmmo, reserveAmmo);
             if (autoEquip || _activeIndex < 0)
             {
                 EquipIndex(_slots.Count - 1);
@@ -102,11 +109,11 @@ namespace HoldPointShowdown.Player
 
             SaveActiveAmmo();
             int droppedIndex = _activeIndex;
-            WeaponConfig droppedConfig = _slots[droppedIndex].Config;
+            WeaponSlot droppedSlot = _slots[droppedIndex];
             _slots.RemoveAt(droppedIndex);
             _activeIndex = -1;
             EquipIndex(Mathf.Clamp(droppedIndex, 0, _slots.Count - 1));
-            SpawnDroppedWeapon(droppedConfig);
+            SpawnDroppedWeapon(droppedSlot.Config, droppedSlot.Magazine, droppedSlot.Reserve);
             return true;
         }
 
@@ -138,13 +145,13 @@ namespace HoldPointShowdown.Player
             return added;
         }
 
-        private void AddSlot(WeaponConfig config)
+        private void AddSlot(WeaponConfig config, int magazineAmmo = -1, int reserveAmmo = -1)
         {
             _slots.Add(new WeaponSlot
             {
                 Config = config,
-                Magazine = config.MagazineSize,
-                Reserve = config.StartingReserveAmmo
+                Magazine = magazineAmmo >= 0 ? Mathf.Clamp(magazineAmmo, 0, config.MagazineSize) : config.MagazineSize,
+                Reserve = reserveAmmo >= 0 ? reserveAmmo : config.StartingReserveAmmo
             });
         }
 
@@ -173,7 +180,7 @@ namespace HoldPointShowdown.Player
             }
         }
 
-        private void SpawnDroppedWeapon(WeaponConfig config)
+        private void SpawnDroppedWeapon(WeaponConfig config, int magazineAmmo, int reserveAmmo)
         {
             if (config == null || config.ModelPrefab == null)
             {
@@ -187,7 +194,7 @@ namespace HoldPointShowdown.Player
             visual.transform.localScale *= 1.15f;
             visual.AddComponent<ShowcasePropMotion>().Configure(48f, 0.14f, 1.15f);
             WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
-            pickup.ConfigureWeapon(config, 0f, visual);
+            pickup.ConfigureDroppedWeapon(config, magazineAmmo, reserveAmmo, visual);
         }
 
         private void Update()
