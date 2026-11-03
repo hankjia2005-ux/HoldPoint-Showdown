@@ -31,6 +31,7 @@ namespace HoldPointShowdown.Combat
         private float _nextShotAt;
         private float _reloadCompleteAt;
         private int _pendingReloadAmount;
+        private readonly RaycastHit[] _hitBuffer = new RaycastHit[32];
 
         public WeaponConfig Config => _config;
         public int MagazineAmmo { get; private set; }
@@ -133,7 +134,35 @@ namespace HoldPointShowdown.Combat
             Vector3 hitNormal = -ray.direction;
             bool didHit = false;
 
-            if (Physics.Raycast(ray, out RaycastHit hit, _config.Range, _hitMask, QueryTriggerInteraction.Ignore))
+            int hitCount = Physics.RaycastNonAlloc(
+                ray,
+                _hitBuffer,
+                _config.Range,
+                _hitMask,
+                QueryTriggerInteraction.Collide);
+            bool foundBlockingHit = false;
+            RaycastHit hit = default;
+            float nearestDistance = _config.Range + 1f;
+            for (int index = 0; index < hitCount; index++)
+            {
+                RaycastHit candidate = _hitBuffer[index];
+                IDamageable candidateDamageable = candidate.collider.GetComponentInParent<IDamageable>();
+                if (candidate.collider.isTrigger && candidateDamageable == null)
+                {
+                    continue;
+                }
+
+                if (candidate.distance >= nearestDistance)
+                {
+                    continue;
+                }
+
+                foundBlockingHit = true;
+                nearestDistance = candidate.distance;
+                hit = candidate;
+            }
+
+            if (foundBlockingHit)
             {
                 didHit = true;
                 endPoint = hit.point;

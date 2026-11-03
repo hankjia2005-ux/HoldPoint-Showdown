@@ -16,9 +16,14 @@ namespace HoldPointShowdown.Presentation
 
         private Vector3 _lastWorldPosition;
         private Vector3 _modelStartPosition;
+        private Quaternion _modelStartRotation;
         private float _stepPhase;
         private float _crouchBlend;
+        private float _sprintBlend;
+        private float _movementBlend;
+        private float _smoothedSpeed;
         private bool _isCrouching;
+        private bool _isSprinting;
 
         public Transform Muzzle => _muzzle;
         public Transform WeaponSocket => _weaponSocket != null ? _weaponSocket : _muzzle;
@@ -27,6 +32,11 @@ namespace HoldPointShowdown.Presentation
         public void SetCrouching(bool crouching)
         {
             _isCrouching = crouching;
+        }
+
+        public void SetSprinting(bool sprinting)
+        {
+            _isSprinting = sprinting;
         }
 
         public void Configure(
@@ -65,6 +75,7 @@ namespace HoldPointShowdown.Presentation
         {
             _lastWorldPosition = transform.position;
             _modelStartPosition = _modelRoot != null ? _modelRoot.localPosition : Vector3.zero;
+            _modelStartRotation = _modelRoot != null ? _modelRoot.localRotation : Quaternion.identity;
         }
 
         private void LateUpdate()
@@ -75,26 +86,46 @@ namespace HoldPointShowdown.Presentation
             }
 
             Vector3 displacement = Vector3.ProjectOnPlane(transform.position - _lastWorldPosition, Vector3.up);
-            float speed = Mathf.Clamp(displacement.magnitude / Time.deltaTime, 0f, 7f);
+            float speed = Mathf.Clamp(displacement.magnitude / Time.deltaTime, 0f, 9f);
             _lastWorldPosition = transform.position;
-            _stepPhase += speed * Time.deltaTime * 2.4f;
+            _smoothedSpeed = Mathf.Lerp(
+                _smoothedSpeed,
+                speed,
+                1f - Mathf.Exp(-10f * Time.deltaTime));
+            float targetMovement = Mathf.InverseLerp(0.1f, 2.2f, _smoothedSpeed);
+            _movementBlend = Mathf.MoveTowards(_movementBlend, targetMovement, Time.deltaTime * 6f);
+            float targetSprint = (_isSprinting || _smoothedSpeed > 6f) && !_isCrouching ? 1f : 0f;
+            _sprintBlend = Mathf.MoveTowards(_sprintBlend, targetSprint, Time.deltaTime * 5f);
+            float cadence = Mathf.Lerp(7.2f, 10.4f, _sprintBlend);
+            _stepPhase += cadence * Time.deltaTime * _movementBlend;
 
-            float activity = Mathf.InverseLerp(0.05f, 2f, speed);
-            float swing = Mathf.Sin(_stepPhase * Mathf.PI) * 28f * activity;
+            float stride = Mathf.Sin(_stepPhase);
+            float legAngle = Mathf.Lerp(23f, 36f, _sprintBlend) * stride * _movementBlend;
             _crouchBlend = Mathf.MoveTowards(
                 _crouchBlend,
                 _isCrouching ? 1f : 0f,
                 Time.deltaTime * 8f);
-            SetPivotRotation(_leftArmPivot, swing);
-            SetPivotRotation(_rightArmPivot, -swing * 0.55f);
-            SetPivotRotation(_leftLegPivot, Mathf.Lerp(-swing, 32f - (swing * 0.25f), _crouchBlend));
-            SetPivotRotation(_rightLegPivot, Mathf.Lerp(swing, 32f + (swing * 0.25f), _crouchBlend));
+            float leftArmAngle = -legAngle * Mathf.Lerp(0.62f, 0.78f, _sprintBlend);
+            float weaponArmAngle = legAngle * Mathf.Lerp(0.12f, 0.2f, _sprintBlend);
+            SetPivotRotation(_leftArmPivot, Mathf.Lerp(leftArmAngle, 18f, _crouchBlend));
+            SetPivotRotation(_rightArmPivot, Mathf.Lerp(weaponArmAngle, 8f, _crouchBlend));
+            SetPivotRotation(_leftLegPivot, Mathf.Lerp(legAngle, 30f - (legAngle * 0.2f), _crouchBlend));
+            SetPivotRotation(_rightLegPivot, Mathf.Lerp(-legAngle, 30f + (legAngle * 0.2f), _crouchBlend));
 
-            float bob = Mathf.Abs(Mathf.Sin(_stepPhase * Mathf.PI)) * 0.045f * activity;
+            float bobHeight = Mathf.Lerp(0.045f, 0.085f, _sprintBlend);
+            float bob = Mathf.Abs(Mathf.Sin(_stepPhase)) * bobHeight * _movementBlend;
             _modelRoot.localPosition = Vector3.Lerp(
                 _modelRoot.localPosition,
                 _modelStartPosition + (Vector3.up * (bob - (0.22f * _crouchBlend))),
                 1f - Mathf.Exp(-18f * Time.deltaTime));
+
+            float forwardLean = Mathf.Lerp(1.5f, 9f, _sprintBlend) * _movementBlend;
+            float sideSway = Mathf.Sin(_stepPhase * 0.5f) * Mathf.Lerp(0.8f, 2.2f, _sprintBlend) * _movementBlend;
+            Quaternion locomotionRotation = _modelStartRotation * Quaternion.Euler(forwardLean, 0f, sideSway);
+            _modelRoot.localRotation = Quaternion.Slerp(
+                _modelRoot.localRotation,
+                locomotionRotation,
+                1f - Mathf.Exp(-12f * Time.deltaTime));
         }
 
         private static void SetPivotRotation(Transform pivot, float xAngle)

@@ -57,19 +57,19 @@ namespace HoldPointShowdown.Editor
 
             WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(PistolAssetPath);
             pistol.SetBalancedValues("weapon.pistol.common", "白色基础手枪", WeaponArchetype.Pistol, ItemRarity.Common,
-                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 30, 1.4f, 30, 72f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
+                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 30, 1.4f, 30, 120f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
 
             WeaponConfig smg = GetOrCreateAsset<WeaponConfig>(SmgAssetPath);
             smg.SetBalancedValues("weapon.smg.uncommon", "绿色疾风冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon,
-                AmmoKind.Light, 13f, 10f, 1, 2.15f, 30, 90, 2f, 36, 48f, smgModel, new Color(0.22f, 0.86f, 0.42f));
+                AmmoKind.Light, 13f, 10f, 1, 2.15f, 30, 90, 2f, 36, 105f, smgModel, new Color(0.22f, 0.86f, 0.42f));
 
             WeaponConfig rifle = GetOrCreateAsset<WeaponConfig>(RifleAssetPath);
             rifle.SetBalancedValues("weapon.rifle.rare", "蓝色先锋步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare,
-                AmmoKind.Rifle, 22f, 6f, 1, 0.65f, 24, 72, 2.2f, 30, 92f, rifleModel, new Color(0.18f, 0.55f, 1f));
+                AmmoKind.Rifle, 22f, 6f, 1, 0.65f, 24, 72, 2.2f, 30, 150f, rifleModel, new Color(0.18f, 0.55f, 1f));
 
             WeaponConfig shotgun = GetOrCreateAsset<WeaponConfig>(ShotgunAssetPath);
             shotgun.SetBalancedValues("weapon.shotgun.epic", "紫色风暴连发霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic,
-                AmmoKind.Shell, 8f, 2.2f, 8, 6.4f, 8, 32, 2.6f, 12, 24f, shotgunModel, new Color(0.66f, 0.28f, 1f));
+                AmmoKind.Shell, 8f, 2.2f, 8, 6.4f, 8, 32, 2.6f, 12, 42f, shotgunModel, new Color(0.66f, 0.28f, 1f));
 
             GameBalanceConfig balance = GetOrCreateAsset<GameBalanceConfig>(BalanceAssetPath);
             balance.SetDemoValues();

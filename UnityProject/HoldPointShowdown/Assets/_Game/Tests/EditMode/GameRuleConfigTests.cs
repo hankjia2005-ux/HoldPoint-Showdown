@@ -49,6 +49,7 @@ namespace HoldPointShowdown.Tests
         public void Controls_KeepSForBackward_AndUseLeftControlForCrouch()
         {
             Assert.That(ThirdPersonPlayerController.CrouchKeyboardBinding, Is.EqualTo("<Keyboard>/leftCtrl"));
+            Assert.That(ThirdPersonPlayerController.SprintKeyboardBinding, Is.EqualTo("<Keyboard>/leftShift"));
         }
     }
 }

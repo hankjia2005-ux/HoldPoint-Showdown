@@ -93,6 +93,12 @@ namespace HoldPointShowdown.Editor
 
             CreatePart("背包", model.transform, new Vector3(0f, 1.42f, -0.39f), new Vector3(0.58f, 0.62f, 0.2f), dark, renderers);
 
+            CapsuleCollider damageHitbox = root.AddComponent<CapsuleCollider>();
+            damageHitbox.center = new Vector3(0f, 1.35f, 0f);
+            damageHitbox.height = 2.8f;
+            damageHitbox.radius = 0.72f;
+            damageHitbox.isTrigger = true;
+
             BlockCharacterVisual visual = root.AddComponent<BlockCharacterVisual>();
             visual.Configure(model.transform, leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot, muzzle, weaponSocket, renderers.ToArray());
             root.AddComponent<CharacterCombatFeedback>();

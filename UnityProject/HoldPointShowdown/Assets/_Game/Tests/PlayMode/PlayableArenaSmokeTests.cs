@@ -37,6 +37,8 @@ namespace HoldPointShowdown.Tests
             Assert.That(pickups.Length, Is.GreaterThanOrEqualTo(8));
             Assert.That(loadout.WeaponCount, Is.EqualTo(1));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
+            Assert.That(weapon.Config.Range, Is.GreaterThanOrEqualTo(100f),
+                "初始手枪射程必须覆盖第三人称镜头到对侧基地的距离");
             Assert.That(inventory.UsedSlots, Is.EqualTo(3));
 
             WorldItemPickup smgPickup = null;
@@ -89,6 +91,69 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator Hitscan_ReachesAcrossArena_AndDamagesOuterLeg()
+        {
+            GameObject cameraObject = new("远射测试相机");
+            Camera aimCamera = cameraObject.AddComponent<Camera>();
+            aimCamera.enabled = false;
+            cameraObject.transform.SetPositionAndRotation(
+                new Vector3(1000.44f, 0.14f, 0f),
+                Quaternion.LookRotation(Vector3.forward));
+
+            GameObject shooter = new("远射测试射手");
+            shooter.AddComponent<TeamMember>().Configure(TeamId.Blue);
+            PrototypeHitscanWeapon weapon = shooter.AddComponent<PrototypeHitscanWeapon>();
+            WeaponConfig config = ScriptableObject.CreateInstance<WeaponConfig>();
+            config.SetBalancedValues(
+                "test.long-range-pistol", "远射测试手枪", WeaponArchetype.Pistol, ItemRarity.Common,
+                AmmoKind.Light, 20f, 4f, 1, 0f, 12, 30, 1.4f, 30, 120f, null, Color.white);
+            weapon.Configure(config, aimCamera);
+
+            GameObject target = new("百米腿部测试目标");
+            target.transform.position = new Vector3(1000f, 0f, 100f);
+            CharacterController targetController = target.AddComponent<CharacterController>();
+            targetController.height = 2.75f;
+            targetController.radius = 0.48f;
+            targetController.center = new Vector3(0f, 1.35f, 0f);
+            Damageable targetDamageable = target.AddComponent<Damageable>();
+            targetDamageable.Configure(100f, 100f, false, 0f);
+            target.AddComponent<TeamMember>().Configure(TeamId.Red);
+            GameObject hitboxObject = new("角色完整受击判定体");
+            hitboxObject.transform.SetParent(target.transform, false);
+            CapsuleCollider damageHitbox = hitboxObject.AddComponent<CapsuleCollider>();
+            damageHitbox.center = new Vector3(0f, 1.35f, 0f);
+            damageHitbox.height = 2.8f;
+            damageHitbox.radius = 0.72f;
+            damageHitbox.isTrigger = true;
+
+            yield return null;
+            Physics.SyncTransforms();
+            float healthBefore = targetDamageable.CurrentHealth;
+            Ray aimRay = aimCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+            bool rawHit = Physics.Raycast(
+                aimRay,
+                out RaycastHit rawHitInfo,
+                config.Range,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Collide);
+
+            Assert.That(rawHit, Is.True,
+                $"测试射线未触发任何碰撞。origin={aimRay.origin}, direction={aimRay.direction}, bounds={targetController.bounds}");
+            Assert.That(rawHitInfo.collider.GetComponentInParent<Damageable>(), Is.SameAs(targetDamageable),
+                $"测试射线被其他对象遮挡：{rawHitInfo.collider.name}");
+
+            Assert.That(weapon.TryFire(), Is.True);
+            Assert.That(targetDamageable.CurrentHealth, Is.LessThan(healthBefore),
+                "100 米外瞄准方块鞋外沿时也必须命中并造成伤害");
+
+            Object.Destroy(target);
+            Object.Destroy(shooter);
+            Object.Destroy(cameraObject);
+            Object.Destroy(config);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator CameraRig_AcceptsMouseAim_ZoomsOut_AndControllerCrouches()
         {
             SceneManager.LoadScene("ArenaTown");
@@ -105,6 +170,11 @@ namespace HoldPointShowdown.Tests
 
             Assert.That(cameraRig, Is.Not.Null);
             Assert.That(controller, Is.Not.Null);
+            CapsuleCollider damageHitbox = controller.GetComponentInChildren<CapsuleCollider>();
+            Assert.That(damageHitbox, Is.Not.Null, "角色必须包含独立受击判定体");
+            Assert.That(damageHitbox.isTrigger, Is.True);
+            Assert.That(damageHitbox.radius, Is.GreaterThanOrEqualTo(0.7f),
+                "受击判定体必须覆盖方块小人的双腿和鞋子，避免腿部射击穿透");
             Vector2 lookBefore = cameraRig.LookAngles;
             cameraRig.ApplyLookDelta(new Vector2(50f, -20f), true);
             Assert.That(cameraRig.LookAngles.x, Is.GreaterThan(lookBefore.x));

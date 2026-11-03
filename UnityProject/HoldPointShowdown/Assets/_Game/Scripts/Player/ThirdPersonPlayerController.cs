@@ -11,9 +11,11 @@ namespace HoldPointShowdown.Player
     public sealed class ThirdPersonPlayerController : MonoBehaviour
     {
         public const string CrouchKeyboardBinding = "<Keyboard>/leftCtrl";
+        public const string SprintKeyboardBinding = "<Keyboard>/leftShift";
 
         [Header("Movement")]
         [SerializeField, Min(0.1f)] private float _moveSpeed = 5f;
+        [SerializeField, Min(0.1f)] private float _sprintSpeed = 7.5f;
         [SerializeField, Min(0.1f)] private float _crouchSpeed = 2.5f;
         [SerializeField, Min(0.1f)] private float _rotationSpeed = 14f;
         [SerializeField, Min(0.1f)] private float _jumpHeight = 1.25f;
@@ -27,11 +29,13 @@ namespace HoldPointShowdown.Player
         private InputAction _moveAction;
         private InputAction _jumpAction;
         private InputAction _crouchAction;
+        private InputAction _sprintAction;
         private InputAction _fireAction;
         private InputAction _reloadAction;
         private InputAction _cursorAction;
         private float _verticalVelocity;
         private bool _isCrouching;
+        private bool _isSprinting;
         private bool _cursorUnlockedByUser;
         private float _standingHeight;
         private Vector3 _standingCenter;
@@ -40,6 +44,7 @@ namespace HoldPointShowdown.Player
         private BlockCharacterVisual _characterVisual;
 
         public bool IsCrouching => _isCrouching;
+        public bool IsSprinting => _isSprinting;
 
         public void Configure(Camera playerCamera, PrototypeHitscanWeapon weapon)
         {
@@ -50,11 +55,21 @@ namespace HoldPointShowdown.Player
         public void SetCrouching(bool crouching)
         {
             _isCrouching = crouching;
+            if (crouching)
+            {
+                SetSprinting(false);
+            }
             _characterController.height = crouching ? _standingHeight * 0.6f : _standingHeight;
             _characterController.center = crouching
                 ? _standingCenter - new Vector3(0f, _standingHeight * 0.2f, 0f)
                 : _standingCenter;
             _characterVisual?.SetCrouching(crouching);
+        }
+
+        private void SetSprinting(bool sprinting)
+        {
+            _isSprinting = sprinting;
+            _characterVisual?.SetSprinting(sprinting);
         }
 
         private void Awake()
@@ -79,6 +94,8 @@ namespace HoldPointShowdown.Player
             _crouchAction = new InputAction("Crouch", InputActionType.Button, CrouchKeyboardBinding);
             _crouchAction.AddBinding("<Keyboard>/rightCtrl");
             _crouchAction.AddBinding("<Gamepad>/rightStickPress");
+            _sprintAction = new InputAction("Sprint", InputActionType.Button, SprintKeyboardBinding);
+            _sprintAction.AddBinding("<Gamepad>/leftStickPress");
             _fireAction = new InputAction("Fire", InputActionType.Button, "<Mouse>/leftButton");
             _fireAction.AddBinding("<Gamepad>/rightTrigger");
             _reloadAction = new InputAction("Reload", InputActionType.Button, "<Keyboard>/r");
@@ -91,6 +108,7 @@ namespace HoldPointShowdown.Player
             _moveAction.Enable();
             _jumpAction.Enable();
             _crouchAction.Enable();
+            _sprintAction.Enable();
             _fireAction.Enable();
             _reloadAction.Enable();
             _cursorAction.Enable();
@@ -100,9 +118,11 @@ namespace HoldPointShowdown.Player
 
         private void OnDisable()
         {
+            SetSprinting(false);
             _moveAction.Disable();
             _jumpAction.Disable();
             _crouchAction.Disable();
+            _sprintAction.Disable();
             _fireAction.Disable();
             _reloadAction.Disable();
             _cursorAction.Disable();
@@ -113,6 +133,7 @@ namespace HoldPointShowdown.Player
             _moveAction?.Dispose();
             _jumpAction?.Dispose();
             _crouchAction?.Dispose();
+            _sprintAction?.Dispose();
             _fireAction?.Dispose();
             _reloadAction?.Dispose();
             _cursorAction?.Dispose();
@@ -159,6 +180,7 @@ namespace HoldPointShowdown.Player
                 {
                     SetCrouching(false);
                 }
+                SetSprinting(false);
                 return;
             }
 
@@ -193,6 +215,12 @@ namespace HoldPointShowdown.Player
                 horizontal.Normalize();
             }
 
+            bool sprinting = !_isCrouching
+                && input.y > 0.1f
+                && horizontal.sqrMagnitude > 0.01f
+                && _sprintAction.IsPressed();
+            SetSprinting(sprinting);
+
             if (_characterController.isGrounded)
             {
                 _verticalVelocity = -2f;
@@ -206,7 +234,9 @@ namespace HoldPointShowdown.Player
                 _verticalVelocity -= _gravity * Time.deltaTime;
             }
 
-            float speed = _isCrouching ? _crouchSpeed : _moveSpeed;
+            float speed = _isCrouching
+                ? _crouchSpeed
+                : (_isSprinting ? _sprintSpeed : _moveSpeed);
             Vector3 velocity = (horizontal * speed) + (Vector3.up * _verticalVelocity);
             _characterController.Move(velocity * Time.deltaTime);
 
