@@ -286,6 +286,10 @@ namespace HoldPointShowdown.Player
             }
 
             Keyboard keyboard = Keyboard.current;
+            if (MobileInputBridge.ConsumeSwitchWeapon())
+            {
+                EquipIndex(_slots.Count > 0 ? (_activeIndex + 1) % _slots.Count : -1);
+            }
             if (keyboard == null)
             {
                 return;

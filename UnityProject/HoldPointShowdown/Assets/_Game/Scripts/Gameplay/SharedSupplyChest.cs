@@ -79,17 +79,19 @@ namespace HoldPointShowdown.Gameplay
             }
 
             Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            if (keyboard.eKey.wasPressedThisFrame)
+            bool togglePressed = (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+                || MobileInputBridge.ConsumeInteract();
+            if (togglePressed)
             {
                 _isOpen = !_isOpen;
             }
 
             if (!_isOpen)
+            {
+                return;
+            }
+
+            if (keyboard == null)
             {
                 return;
             }
@@ -137,7 +139,9 @@ namespace HoldPointShowdown.Gameplay
 
             EnsureStyles();
             float width = 430f;
-            Rect panel = new((Screen.width - width) * 0.5f, Screen.height - (_isOpen ? 302f : 92f), width, _isOpen ? 264f : 54f);
+            bool mobile = MobileInputBridge.IsEnabled;
+            float panelHeight = _isOpen ? (mobile ? 368f : 264f) : 54f;
+            Rect panel = new((Screen.width - width) * 0.5f, Screen.height - panelHeight - 38f, width, panelHeight);
             GUI.Box(panel, GUIContent.none, _panelStyle);
 
             string side = _team == TeamId.Blue ? "蓝方" : "红方";
@@ -160,6 +164,24 @@ namespace HoldPointShowdown.Gameplay
                 ? "存入：[F5]弹药 [F6]医疗 [F7]护甲 [F8]当前非初始武器  ·  E关闭"
                 : "F1–F4 抢夺敌方物资  ·  敌方仓库不可存入  ·  E关闭";
             GUI.Label(new Rect(panel.x + 20f, panel.y + 180f, panel.width - 40f, 62f), operation, _bodyStyle);
+            if (mobile && _isOpen)
+            {
+                string[] withdrawLabels = { "取弹", "取医", "取甲", "取枪" };
+                for (int index = 0; index < withdrawLabels.Length; index++)
+                {
+                    if (!GUI.Button(new Rect(panel.x + 18f + (index * 99f), panel.y + 244f, 92f, 42f), withdrawLabels[index])) continue;
+                    if (index < 3) TryWithdrawSupply((SupplyKind)index); else TryWithdrawWeapon();
+                }
+                if (friendly)
+                {
+                    string[] depositLabels = { "存弹", "存医", "存甲", "存枪" };
+                    for (int index = 0; index < depositLabels.Length; index++)
+                    {
+                        if (!GUI.Button(new Rect(panel.x + 18f + (index * 99f), panel.y + 296f, 92f, 42f), depositLabels[index])) continue;
+                        if (index < 3) TryDepositSupply((SupplyKind)index); else TryDepositActiveWeapon();
+                    }
+                }
+            }
         }
 
         public bool TryDepositSupply(SupplyKind kind)

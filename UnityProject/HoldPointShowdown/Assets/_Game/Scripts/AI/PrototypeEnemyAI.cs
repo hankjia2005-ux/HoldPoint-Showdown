@@ -20,8 +20,10 @@ namespace HoldPointShowdown.AI
         [SerializeField, Min(1f)] private float _detectionRange = 72f;
         [SerializeField, Min(1f)] private float _attackRange = 24f;
         [SerializeField, Min(0.1f)] private float _moveSpeed = 6.2f;
-        [SerializeField, Min(0.1f)] private float _shotsPerSecond = 1.25f;
-        [SerializeField, Min(1f)] private float _damage = 8f;
+        [SerializeField, Range(1, 5)] private int _burstSize = 3;
+        [SerializeField, Min(0.05f)] private float _burstInterval = 0.12f;
+        [SerializeField, Min(0.2f)] private float _burstCooldown = 1.3f;
+        [SerializeField, Min(1f)] private float _damage = 9f;
         [SerializeField] private Transform _target;
         [SerializeField] private Damageable _targetDamageable;
         [SerializeField] private Transform _muzzle;
@@ -35,13 +37,17 @@ namespace HoldPointShowdown.AI
         private Vector3 _spawnPosition;
         private Vector3 _patrolTarget;
         private float _nextShotAt;
+        private float _nextBurstShotAt;
+        private int _burstShotsRemaining;
         private float _nextTargetSearchAt;
         private float _gravityVelocity;
         private float _avoidanceSign;
+        private AudioFeedback _audioFeedback;
 
         public EnemyAIIntent CurrentIntent { get; private set; } = EnemyAIIntent.Advance;
         public bool HasTarget => IsTargetValid();
         public float MoveSpeed => _moveSpeed;
+        public int BurstSize => _burstSize;
 
         public void Configure(Transform target, Damageable targetDamageable, Transform muzzle)
         {
@@ -64,6 +70,7 @@ namespace HoldPointShowdown.AI
             _teamMember = GetComponent<TeamMember>();
             _lifecycle = GetComponent<CombatantLifecycle>();
             _effects = GetComponent<PrototypeWeaponEffects>();
+            _audioFeedback = GetComponent<AudioFeedback>();
             _spawnPosition = transform.position;
             _patrolTarget = _spawnPosition + (transform.right * 3f);
             _avoidanceSign = transform.position.x >= 0f ? 1f : -1f;
@@ -184,12 +191,27 @@ namespace HoldPointShowdown.AI
 
         private void TryShoot()
         {
-            if (Time.time < _nextShotAt || !IsTargetValid())
+            if (!IsTargetValid())
             {
                 return;
             }
 
-            _nextShotAt = Time.time + (1f / _shotsPerSecond);
+            if (_burstShotsRemaining <= 0)
+            {
+                if (Time.time < _nextShotAt)
+                {
+                    return;
+                }
+                _burstShotsRemaining = _burstSize;
+                _nextBurstShotAt = Time.time;
+                _nextShotAt = Time.time + _burstCooldown;
+            }
+            if (Time.time < _nextBurstShotAt)
+            {
+                return;
+            }
+            _burstShotsRemaining--;
+            _nextBurstShotAt = Time.time + _burstInterval;
             Vector3 origin = _muzzle != null ? _muzzle.position : transform.position + (Vector3.up * 1.7f);
             Vector3 targetPoint = _target.position + (Vector3.up * 1.35f);
             Vector3 direction = (targetPoint - origin).normalized;
@@ -208,6 +230,7 @@ namespace HoldPointShowdown.AI
             }
 
             _effects?.PlayExternalShot(origin, endPoint, didHit);
+            _audioFeedback?.PlayExternalGunshot(_damage);
         }
 
         private void AdvanceTowardBattle()
@@ -313,6 +336,7 @@ namespace HoldPointShowdown.AI
             }
 
             _nextShotAt = Time.time + 0.6f;
+            _burstShotsRemaining = 0;
             _nextTargetSearchAt = 0f;
         }
     }

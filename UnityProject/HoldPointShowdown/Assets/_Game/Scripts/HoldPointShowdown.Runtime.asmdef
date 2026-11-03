@@ -2,7 +2,8 @@
   "name": "HoldPointShowdown.Runtime",
   "rootNamespace": "HoldPointShowdown",
   "references": [
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

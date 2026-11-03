@@ -1,4 +1,5 @@
 using System;
+using HoldPointShowdown.Presentation;
 using UnityEngine;
 
 namespace HoldPointShowdown.Combat
@@ -13,17 +14,23 @@ namespace HoldPointShowdown.Combat
         [SerializeField, Min(0.1f)] private float _resetDelay = 2f;
 
         private float _resetAt;
+        private bool _manualInvulnerable;
+        private float _invulnerableUntil;
+        private AudioFeedback _audioFeedback;
 
         public event Action<Damageable> Died;
         public event Action<Damageable> ResetCompleted;
         public event Action<Damageable, float, Vector3, GameObject> Damaged;
+        public event Action<float> InvulnerabilityGranted;
 
         public float CurrentHealth { get; private set; }
         public float CurrentArmor { get; private set; }
         public float MaxHealth => _maxHealth;
         public float MaxArmor => _maxArmor;
         public bool IsAlive => CurrentHealth > 0f;
-        public bool IsInvulnerable { get; private set; }
+        public bool IsInvulnerable => _manualInvulnerable || Time.time < _invulnerableUntil;
+        public GameObject LastInstigator { get; private set; }
+        public Vector3 LastHitPoint { get; private set; }
 
         public void Configure(
             float maxHealth,
@@ -46,7 +53,17 @@ namespace HoldPointShowdown.Combat
 
         public void SetInvulnerable(bool invulnerable)
         {
-            IsInvulnerable = invulnerable;
+            _manualInvulnerable = invulnerable;
+        }
+
+        public void GrantInvulnerability(float seconds)
+        {
+            float duration = Mathf.Max(0f, seconds);
+            _invulnerableUntil = Mathf.Max(_invulnerableUntil, Time.time + duration);
+            if (duration > 0f)
+            {
+                InvulnerabilityGranted?.Invoke(duration);
+            }
         }
 
         public void ApplyDamage(float amount, Vector3 hitPoint, GameObject instigator)
@@ -57,16 +74,20 @@ namespace HoldPointShowdown.Combat
             }
 
             float healthBefore = CurrentHealth;
-            float armorBefore = CurrentArmor;
-            float armorDamage = Mathf.Min(CurrentArmor, amount);
-            CurrentArmor -= armorDamage;
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - (amount - armorDamage));
-            float appliedDamage = (healthBefore - CurrentHealth) + (armorBefore - CurrentArmor);
+            float armoredPortion = Mathf.Min(CurrentArmor, amount);
+            CurrentArmor -= armoredPortion;
+            float healthDamage = (armoredPortion * 0.75f) + (amount - armoredPortion);
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - healthDamage);
+            float appliedDamage = healthBefore - CurrentHealth;
+            LastInstigator = instigator;
+            LastHitPoint = hitPoint;
             Damaged?.Invoke(this, appliedDamage, hitPoint, instigator);
+            _audioFeedback?.PlayImpact(appliedDamage);
 
             if (!IsAlive)
             {
                 _resetAt = Time.time + _resetDelay;
+                _audioFeedback?.PlayDeath();
                 Died?.Invoke(this);
             }
         }
@@ -76,6 +97,8 @@ namespace HoldPointShowdown.Combat
             CurrentHealth = _maxHealth;
             CurrentArmor = _startingArmor;
             _resetAt = 0f;
+            LastInstigator = null;
+            LastHitPoint = Vector3.zero;
             ResetCompleted?.Invoke(this);
         }
 
@@ -105,6 +128,7 @@ namespace HoldPointShowdown.Combat
 
         private void Awake()
         {
+            _audioFeedback = GetComponent<AudioFeedback>();
             ResetState();
         }
 

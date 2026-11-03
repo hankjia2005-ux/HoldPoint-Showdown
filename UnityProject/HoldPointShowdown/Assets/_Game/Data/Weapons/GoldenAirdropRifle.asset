@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4d344479bbe977428dd76ab83a4722c, type: 3}
+  m_Name: GoldenAirdropRifle
+  m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.WeaponConfig
+  _itemId: weapon.rifle.legendary
+  _displayName: "\u91D1\u8272\u7834\u6653\u6B65\u67AA"
+  _archetype: 2
+  _rarity: 4
+  _ammoKind: 1
+  _damage: 25
+  _shotsPerSecond: 6.6
+  _pellets: 1
+  _spreadDegrees: 0.5
+  _range: 240
+  _magazineSize: 25
+  _startingReserveAmmo: 38
+  _reloadSeconds: 2.1
+  _ammoPerPickup: 18
+  _modelPrefab: {fileID: 3952713644575403548, guid: 238345074043aa246b84ff0e26531a75, type: 3}
+  _rarityColor: {r: 1, g: 0.7, b: 0.08, a: 1}

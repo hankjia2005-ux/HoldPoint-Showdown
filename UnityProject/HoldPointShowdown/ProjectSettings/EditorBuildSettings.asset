@@ -6,16 +6,16 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/_Game/Scenes/Bootstrap.unity
-    guid: 1309d8aad9d5082498a1846905c2470f
-  - enabled: 1
     path: Assets/_Game/Scenes/MainMenu.unity
     guid: cb90e1ad9d6d5ea49a827ab4b8e9ada6
+  - enabled: 1
+    path: Assets/_Game/Scenes/ArenaTown.unity
+    guid: e7a39531fc8386447b1a5b709b688e75
   - enabled: 1
     path: Assets/_Game/Scenes/TestGym.unity
     guid: 3bd5661a25734e446a38a25c2a33663c
   - enabled: 1
-    path: Assets/_Game/Scenes/ArenaTown.unity
-    guid: e7a39531fc8386447b1a5b709b688e75
+    path: Assets/_Game/Scenes/Bootstrap.unity
+    guid: 1309d8aad9d5082498a1846905c2470f
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

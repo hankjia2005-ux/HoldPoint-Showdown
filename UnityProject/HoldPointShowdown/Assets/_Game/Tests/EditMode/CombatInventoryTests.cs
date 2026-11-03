@@ -1,6 +1,8 @@
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
+using HoldPointShowdown.Presentation;
+using HoldPointShowdown.UI;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -23,7 +25,7 @@ namespace HoldPointShowdown.Tests
         }
 
         [Test]
-        public void ApplyDamage_ConsumesArmorBeforeHealth_AndRaisesFeedbackEvent()
+        public void ApplyDamage_ArmorReducesDamageByQuarterWithoutHidingHealthLoss()
         {
             Damageable damageable = _gameObject.AddComponent<Damageable>();
             damageable.Configure(100f, 50f, false, 50f);
@@ -33,8 +35,8 @@ namespace HoldPointShowdown.Tests
             damageable.ApplyDamage(60f, Vector3.zero, null);
 
             Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
-            Assert.That(damageable.CurrentHealth, Is.EqualTo(90f));
-            Assert.That(reportedDamage, Is.EqualTo(60f));
+            Assert.That(damageable.CurrentHealth, Is.EqualTo(52.5f));
+            Assert.That(reportedDamage, Is.EqualTo(47.5f));
         }
 
         [Test]
@@ -48,9 +50,39 @@ namespace HoldPointShowdown.Tests
             float healthRestored = damageable.RestoreHealth(100f);
 
             Assert.That(armorRestored, Is.EqualTo(40f));
-            Assert.That(healthRestored, Is.EqualTo(30f));
+            Assert.That(healthRestored, Is.EqualTo(60f));
             Assert.That(damageable.CurrentArmor, Is.EqualTo(40f));
             Assert.That(damageable.CurrentHealth, Is.EqualTo(100f));
+        }
+
+        [Test]
+        public void SpatialAudio_UsesEightReusableThreeDimensionalSources()
+        {
+            AudioFeedback feedback = _gameObject.AddComponent<AudioFeedback>();
+            feedback.Initialize();
+
+            Assert.That(feedback.SourceCount, Is.EqualTo(8));
+            AudioSource[] sources = _gameObject.GetComponentsInChildren<AudioSource>(true);
+            Assert.That(sources.Length, Is.EqualTo(8));
+            foreach (AudioSource source in sources)
+            {
+                Assert.That(source.spatialBlend, Is.EqualTo(1f));
+                Assert.That(source.maxDistance, Is.EqualTo(60f));
+            }
+        }
+
+        [Test]
+        public void DamageIndicator_MapsWorldDirectionRelativeToCameraYaw()
+        {
+            Vector3 origin = Vector3.zero;
+            Assert.That(DamageIndicator.AngleToDirection(
+                DamageIndicator.CalculateRelativeAngle(0f, origin, Vector3.forward)), Is.EqualTo(0));
+            Assert.That(DamageIndicator.AngleToDirection(
+                DamageIndicator.CalculateRelativeAngle(0f, origin, Vector3.right)), Is.EqualTo(1));
+            Assert.That(DamageIndicator.AngleToDirection(
+                DamageIndicator.CalculateRelativeAngle(0f, origin, Vector3.back)), Is.EqualTo(2));
+            Assert.That(DamageIndicator.AngleToDirection(
+                DamageIndicator.CalculateRelativeAngle(0f, origin, Vector3.left)), Is.EqualTo(3));
         }
 
         [Test]

@@ -2,7 +2,8 @@
   "name": "HoldPointShowdown.PlayModeTests",
   "rootNamespace": "HoldPointShowdown.Tests",
   "references": [
-    "HoldPointShowdown.Runtime"
+    "HoldPointShowdown.Runtime",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

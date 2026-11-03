@@ -1,6 +1,7 @@
 using System;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.Player;
+using HoldPointShowdown.Presentation;
 using UnityEngine;
 
 namespace HoldPointShowdown.Combat
@@ -32,6 +33,7 @@ namespace HoldPointShowdown.Combat
         private float _reloadCompleteAt;
         private int _pendingReloadAmount;
         private readonly RaycastHit[] _hitBuffer = new RaycastHit[32];
+        private AudioFeedback _audioFeedback;
 
         public WeaponConfig Config => _config;
         public int MagazineAmmo { get; private set; }
@@ -74,6 +76,7 @@ namespace HoldPointShowdown.Combat
             MagazineAmmo--;
             _nextShotAt = Time.time + (1f / _config.ShotsPerSecond);
             AmmoChanged?.Invoke();
+            _audioFeedback?.PlayGunshot(_config);
 
             Ray centerRay = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
             for (int pellet = 0; pellet < _config.Pellets; pellet++)
@@ -197,6 +200,7 @@ namespace HoldPointShowdown.Combat
 
         private void Awake()
         {
+            _audioFeedback = GetComponent<AudioFeedback>();
             ResetAmmo();
         }
 

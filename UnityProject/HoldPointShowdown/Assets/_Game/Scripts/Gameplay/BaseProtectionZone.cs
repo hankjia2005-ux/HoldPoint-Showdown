@@ -15,6 +15,8 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField] private MatchPhaseController _match;
         [SerializeField] private Renderer _shieldRenderer;
         [SerializeField] private Vector3 _enemyEjectPoint;
+        [SerializeField] private Vector3 _spawnProtectionCenter;
+        [SerializeField, Min(1f)] private float _spawnProtectionRadius = 3f;
 
         private BoxCollider _trigger;
         private readonly HashSet<Damageable> _protected = new();
@@ -23,17 +25,22 @@ namespace HoldPointShowdown.Gameplay
         public bool IsProtectionActive => _match != null
             && _match.IsRunning
             && _match.CurrentPhase == MatchPhase.Scavenge;
+        public bool IsSpawnProtectionActive => _match != null
+            && _match.IsRunning
+            && (_match.CurrentPhase == MatchPhase.Raid || _match.CurrentPhase == MatchPhase.FinalBattle);
 
         public void Configure(
             TeamId team,
             MatchPhaseController match,
             Renderer shieldRenderer,
-            Vector3 enemyEjectPoint)
+            Vector3 enemyEjectPoint,
+            Vector3 spawnProtectionCenter)
         {
             _team = team;
             _match = match;
             _shieldRenderer = shieldRenderer;
             _enemyEjectPoint = enemyEjectPoint;
+            _spawnProtectionCenter = spawnProtectionCenter;
             EnsureTrigger();
             ApplyPhaseState();
         }
@@ -70,6 +77,7 @@ namespace HoldPointShowdown.Gameplay
 
         private void FixedUpdate()
         {
+            ApplySpawnProtection();
             if (_protected.Count == 0)
             {
                 return;
@@ -79,8 +87,7 @@ namespace HoldPointShowdown.Gameplay
             foreach (Damageable damageable in _protected)
             {
                 if (damageable == null
-                    || !IsProtectionActive
-                    || !_trigger.bounds.Contains(damageable.transform.position))
+                    || !ShouldProtect(damageable.transform.position))
                 {
                     _outsideZone.Add(damageable);
                 }
@@ -95,7 +102,7 @@ namespace HoldPointShowdown.Gameplay
 
         private void OnTriggerStay(Collider other)
         {
-            if (!IsProtectionActive)
+            if (_match == null || !_match.IsRunning)
             {
                 return;
             }
@@ -109,11 +116,16 @@ namespace HoldPointShowdown.Gameplay
             Damageable damageable = member.GetComponent<Damageable>();
             if (member.Team == _team)
             {
-                if (damageable != null)
+                if (damageable != null && ShouldProtect(damageable.transform.position))
                 {
                     damageable.SetInvulnerable(true);
                     _protected.Add(damageable);
                 }
+                return;
+            }
+
+            if (!IsProtectionActive)
+            {
                 return;
             }
 
@@ -139,7 +151,7 @@ namespace HoldPointShowdown.Gameplay
         private void OnTriggerExit(Collider other)
         {
             Damageable damageable = other.GetComponentInParent<Damageable>();
-            if (damageable != null && _protected.Remove(damageable))
+            if (damageable != null && !ShouldProtect(damageable.transform.position) && _protected.Remove(damageable))
             {
                 damageable.SetInvulnerable(false);
             }
@@ -159,7 +171,7 @@ namespace HoldPointShowdown.Gameplay
             }
             if (_trigger != null)
             {
-                _trigger.enabled = active;
+            _trigger.enabled = active;
             }
             if (!active)
             {
@@ -180,6 +192,38 @@ namespace HoldPointShowdown.Gameplay
         {
             _trigger = GetComponent<BoxCollider>();
             _trigger.isTrigger = true;
+        }
+
+        private bool ShouldProtect(Vector3 position)
+        {
+            bool insideBaseShield = _trigger != null && _trigger.bounds.Contains(position);
+            return (IsProtectionActive && insideBaseShield)
+                || (IsSpawnProtectionActive
+                    && (position - _spawnProtectionCenter).sqrMagnitude <= _spawnProtectionRadius * _spawnProtectionRadius);
+        }
+
+        private void ApplySpawnProtection()
+        {
+            if (!IsSpawnProtectionActive || _match == null)
+            {
+                return;
+            }
+
+            float radiusSquared = _spawnProtectionRadius * _spawnProtectionRadius;
+            foreach (CombatantLifecycle combatant in _match.Combatants)
+            {
+                if (combatant == null || combatant.Team != _team || combatant.Damageable == null)
+                {
+                    continue;
+                }
+
+                Damageable damageable = combatant.Damageable;
+                if ((combatant.transform.position - _spawnProtectionCenter).sqrMagnitude <= radiusSquared)
+                {
+                    damageable.SetInvulnerable(true);
+                    _protected.Add(damageable);
+                }
+            }
         }
     }
 }

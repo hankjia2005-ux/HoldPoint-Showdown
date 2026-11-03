@@ -91,9 +91,14 @@ namespace HoldPointShowdown.Gameplay
                     1f - Mathf.Exp(-10f * Time.deltaTime));
             }
 
-            if (!_isOpen && IsPlayerNearby() && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+            if (!_isOpen && IsPlayerNearby())
             {
-                TryOpen(_playerInventory);
+                bool interactPressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+                    || MobileInputBridge.ConsumeInteract();
+                if (interactPressed)
+                {
+                    TryOpen(_playerInventory);
+                }
             }
         }
 

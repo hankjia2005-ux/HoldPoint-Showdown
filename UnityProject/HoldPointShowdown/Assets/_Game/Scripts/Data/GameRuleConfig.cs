@@ -7,9 +7,9 @@ namespace HoldPointShowdown.Data
     public sealed class GameRuleConfig : ScriptableObject
     {
         [Header("Match Timeline")]
-        [SerializeField, Min(1f)] private float _scavengeEndsAt = 180f;
-        [SerializeField, Min(1f)] private float _raidEndsAt = 300f;
-        [SerializeField, Min(1f)] private float _matchEndsAt = 720f;
+        [SerializeField, Min(1f)] private float _scavengeEndsAt = 120f;
+        [SerializeField, Min(1f)] private float _raidEndsAt = 270f;
+        [SerializeField, Min(1f)] private float _matchEndsAt = 540f;
 
         [Header("Respawn")]
         [SerializeField, Min(0f)] private float _scavengeRespawnDelay = 0.75f;
@@ -62,9 +62,9 @@ namespace HoldPointShowdown.Data
         }
 
         public void SetDemoValues(
-            float scavengeEndsAt = 180f,
-            float raidEndsAt = 300f,
-            float matchEndsAt = 720f,
+            float scavengeEndsAt = 120f,
+            float raidEndsAt = 270f,
+            float matchEndsAt = 540f,
             float scavengeRespawnDelay = 0.75f,
             float raidRespawnDelay = 5f,
             float finalRespawnDelay = 5f,

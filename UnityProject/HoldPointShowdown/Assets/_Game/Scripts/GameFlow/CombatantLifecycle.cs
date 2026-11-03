@@ -3,6 +3,7 @@ using HoldPointShowdown.Combat;
 using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.Player;
+using HoldPointShowdown.Presentation;
 using UnityEngine;
 
 namespace HoldPointShowdown.GameFlow
@@ -24,6 +25,8 @@ namespace HoldPointShowdown.GameFlow
 
         private CharacterController _characterController;
         private Coroutine _respawnRoutine;
+        private AudioFeedback _audioFeedback;
+        private CharacterCombatFeedback _combatFeedback;
 
         public TeamId Team => _teamMember != null ? _teamMember.Team : TeamId.Blue;
         public bool IsHumanPlayer => _isHumanPlayer;
@@ -158,6 +161,13 @@ namespace HoldPointShowdown.GameFlow
         private void HandleDied(Damageable _)
         {
             Vector3 deathPosition = transform.position;
+            _combatFeedback?.CaptureCorpse(deathPosition);
+            if (_isHumanPlayer && _damageable != null && _damageable.LastInstigator != null)
+            {
+                Camera.main?.GetComponent<ThirdPersonCameraRig>()?.BeginDeathFocus(
+                    _damageable.LastInstigator.transform,
+                    Mathf.Max(0.65f, _match != null ? _match.Rules.GetRespawnDelay(_match.CurrentPhase) : 0.75f));
+            }
             _inventory?.DropAllOnDeath(deathPosition);
             _loadout?.ResetToStarter();
             SetCollisionEnabled(false);
@@ -203,6 +213,12 @@ namespace HoldPointShowdown.GameFlow
             _loadout?.ResetToStarter();
             _damageable?.SetInvulnerable(false);
             _damageable?.ResetState();
+            _damageable?.GrantInvulnerability(2f);
+            _audioFeedback?.PlayRespawn();
+            if (_isHumanPlayer)
+            {
+                Camera.main?.GetComponent<ThirdPersonCameraRig>()?.EndDeathFocus();
+            }
         }
 
         private void TeleportToSpawn()
@@ -245,6 +261,8 @@ namespace HoldPointShowdown.GameFlow
             _characterController ??= GetComponent<CharacterController>();
             _inventory ??= GetComponent<PrototypeInventory>();
             _loadout ??= GetComponent<WeaponLoadout>();
+            _audioFeedback ??= GetComponent<AudioFeedback>();
+            _combatFeedback ??= GetComponentInChildren<CharacterCombatFeedback>();
         }
     }
 }

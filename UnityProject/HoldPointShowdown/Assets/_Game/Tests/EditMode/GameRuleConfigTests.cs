@@ -23,12 +23,12 @@ namespace HoldPointShowdown.Tests
         }
 
         [TestCase(0f, MatchPhase.Scavenge)]
-        [TestCase(179.99f, MatchPhase.Scavenge)]
-        [TestCase(180f, MatchPhase.Raid)]
-        [TestCase(299.99f, MatchPhase.Raid)]
-        [TestCase(300f, MatchPhase.FinalBattle)]
-        [TestCase(719.99f, MatchPhase.FinalBattle)]
-        [TestCase(720f, MatchPhase.Complete)]
+        [TestCase(119.99f, MatchPhase.Scavenge)]
+        [TestCase(120f, MatchPhase.Raid)]
+        [TestCase(269.99f, MatchPhase.Raid)]
+        [TestCase(270f, MatchPhase.FinalBattle)]
+        [TestCase(539.99f, MatchPhase.FinalBattle)]
+        [TestCase(540f, MatchPhase.Complete)]
         public void ResolvePhase_UsesExpectedBoundaries(float elapsedSeconds, MatchPhase expected)
         {
             Assert.That(_rules.ResolvePhase(elapsedSeconds), Is.EqualTo(expected));

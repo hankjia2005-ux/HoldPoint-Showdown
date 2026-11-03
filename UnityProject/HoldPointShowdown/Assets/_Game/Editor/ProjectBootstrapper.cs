@@ -12,7 +12,10 @@ using HoldPointShowdown.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace HoldPointShowdown.Editor
 {
@@ -70,6 +73,16 @@ namespace HoldPointShowdown.Editor
         Debug.Log("ArenaTown visual slice rebuilt and opened.");
     }
 
+    [MenuItem("HoldPoint Showdown/Rebuild Main Menu")]
+    public static void RebuildMainMenu()
+    {
+        EnsureFolder(ScenesRoot);
+        CreateSceneIfNeeded("MainMenu", true, scene => CreateMainMenuScene());
+        ConfigureBuildScenes();
+        AssetDatabase.SaveAssets();
+        Debug.Log("中文主菜单已重建并打开。");
+    }
+
     private static void BuildProjectFoundation(bool overwriteScenes)
     {
         EnsureFolder(ScenesRoot);
@@ -117,7 +130,96 @@ namespace HoldPointShowdown.Editor
     {
         Camera camera = CreateCamera(new Vector3(0f, 3f, -10f), Quaternion.identity, false);
         camera.backgroundColor = new Color(0.08f, 0.12f, 0.18f);
-        CreateSceneLabel("HOLDPOINT SHOWDOWN", "Prototype foundation\nOpen TestGym to test movement and shooting.");
+
+        GameObject eventSystem = new("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<InputSystemUIInputModule>();
+
+        GameObject canvasObject = new("主菜单画布");
+        Canvas canvas = canvasObject.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+        canvasObject.AddComponent<GraphicRaycaster>();
+
+        GameObject background = new("背景");
+        background.transform.SetParent(canvasObject.transform, false);
+        RectTransform backgroundRect = background.AddComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.offsetMin = Vector2.zero;
+        backgroundRect.offsetMax = Vector2.zero;
+        background.AddComponent<Image>().color = new Color(0.025f, 0.06f, 0.11f, 1f);
+
+        GameObject panel = new("菜单面板");
+        panel.transform.SetParent(canvasObject.transform, false);
+        RectTransform panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.sizeDelta = new Vector2(700f, 780f);
+        panel.AddComponent<Image>().color = new Color(0.045f, 0.1f, 0.17f, 0.96f);
+
+        CreateMenuText("游戏标题", panel.transform, "红蓝据点枪战", new Vector2(0f, 280f), new Vector2(620f, 88f), 54, Color.white);
+        CreateMenuText("副标题", panel.transform, "搜集 · 偷家 · 终局决战", new Vector2(0f, 215f), new Vector2(620f, 42f), 22,
+            new Color(0.38f, 0.82f, 1f));
+        Button play = CreateMenuButton("开始普通模式", panel.transform, new Vector2(0f, 92f), new Color(0.12f, 0.62f, 1f));
+        Button training = CreateMenuButton("单机训练", panel.transform, new Vector2(0f, -4f), new Color(0.14f, 0.72f, 0.58f));
+        Button quit = CreateMenuButton("退出游戏", panel.transform, new Vector2(0f, -100f), new Color(0.82f, 0.25f, 0.22f));
+        CreateMenuText("操作提示", panel.transform,
+            "WASD 移动  ·  Shift 疾跑  ·  双击 S 下蹲\nV 切换视角  ·  鼠标滚轮缩放  ·  Esc 暂停",
+            new Vector2(0f, -250f), new Vector2(610f, 92f), 18, new Color(0.72f, 0.82f, 0.9f));
+
+        MainMenuController controller = canvasObject.AddComponent<MainMenuController>();
+        controller.Configure(play, training, quit);
+    }
+
+    private static Text CreateMenuText(
+        string name,
+        Transform parent,
+        string content,
+        Vector2 position,
+        Vector2 size,
+        int fontSize,
+        Color color)
+    {
+        GameObject textObject = new(name);
+        textObject.transform.SetParent(parent, false);
+        RectTransform rect = textObject.AddComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        Text text = textObject.AddComponent<Text>();
+        text.text = content;
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.fontSize = fontSize;
+        text.fontStyle = FontStyle.Bold;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = color;
+        text.resizeTextForBestFit = true;
+        text.resizeTextMinSize = Mathf.Max(12, fontSize - 8);
+        text.resizeTextMaxSize = fontSize;
+        return text;
+    }
+
+    private static Button CreateMenuButton(string label, Transform parent, Vector2 position, Color color)
+    {
+        GameObject buttonObject = new(label);
+        buttonObject.transform.SetParent(parent, false);
+        RectTransform rect = buttonObject.AddComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(470f, 70f);
+        Image image = buttonObject.AddComponent<Image>();
+        image.color = color;
+        Button button = buttonObject.AddComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = color;
+        colors.highlightedColor = Color.Lerp(color, Color.white, 0.22f);
+        colors.pressedColor = Color.Lerp(color, Color.black, 0.2f);
+        button.colors = colors;
+        CreateMenuText("文字", buttonObject.transform, label, Vector2.zero, rect.sizeDelta, 25, Color.white);
+        return button;
     }
 
     private static void CreateTestGymScene(
@@ -135,6 +237,7 @@ namespace HoldPointShowdown.Editor
         CreatePrimitive("RightWall", PrimitiveType.Cube, new Vector3(12f, 2f, 0f), new Vector3(0.5f, 5f, 24f), dark);
 
         GameObject player = CreatePrimitive("PrototypePlayer", PrimitiveType.Capsule, new Vector3(0f, 1f, -5f), Vector3.one, blue);
+        player.AddComponent<AudioFeedback>();
         player.layer = LayerMask.NameToLayer("Ignore Raycast");
         Collider primitiveCollider = player.GetComponent<Collider>();
         if (primitiveCollider != null)
@@ -174,6 +277,7 @@ namespace HoldPointShowdown.Editor
         GameObject hudObject = new("PrototypeHUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
         hud.Configure(match, weapon, playerDamageable);
+        hudObject.AddComponent<DamageIndicator>().Configure(playerDamageable, camera);
     }
 
     private static void CreateArenaTownScene(Material blue, Material red, Material neutral, Material dark)
@@ -215,6 +319,7 @@ namespace HoldPointShowdown.Editor
         WeaponConfig smg = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.SmgAssetPath);
         WeaponConfig rifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.RifleAssetPath);
         WeaponConfig shotgun = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.ShotgunAssetPath);
+        WeaponConfig goldenRifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.GoldenRifleAssetPath);
 
         Material grass = GetOrCreateMaterial(MaterialsRoot + "/Grass.mat", new Color(0.34f, 0.68f, 0.43f));
         Material road = GetOrCreateMaterial(MaterialsRoot + "/Road.mat", new Color(0.17f, 0.22f, 0.28f));
@@ -281,6 +386,9 @@ namespace HoldPointShowdown.Editor
         }
 
         CreateCentralLandmark(props.transform, dark, teal, yellow);
+        GameObject airdropObject = new("终局金色空投");
+        airdropObject.transform.SetParent(props.transform, false);
+        airdropObject.AddComponent<GoldenAirdrop>().Configure(match, goldenRifle, new Vector3(0f, 1.05f, 0f));
         CreateCoverLayout(props.transform, dark, warmWhite, coral, teal, new[] { smg, rifle, shotgun });
         CreateTacticalStructures(props.transform, dark, warmWhite, coral, teal, yellow, glass);
         CreateStreetFurniture(presentation.transform, dark, teal, yellow, grass);
@@ -344,6 +452,9 @@ namespace HoldPointShowdown.Editor
         GameObject hudObject = new("Showcase HUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
         hud.Configure(match, weapon, playerDamageable, inventory);
+        hudObject.AddComponent<DamageIndicator>().Configure(playerDamageable, camera);
+        hudObject.AddComponent<PauseMenuController>().Configure(match);
+        hudObject.AddComponent<MobileControlsOverlay>();
     }
 
     private static GameObject CreateTeamBase(
@@ -394,7 +505,8 @@ namespace HoldPointShowdown.Editor
             teamId,
             match,
             shieldRenderer,
-            new Vector3(0f, 0.85f, z + (forward * 9.5f)));
+            new Vector3(0f, 0.85f, z + (forward * 9.5f)),
+            new Vector3(0f, 0.85f, z + (forward * 5.4f)));
 
         GameObject chestRoot = new("Shared Supply Chest");
         chestRoot.transform.SetParent(propsParent);
@@ -738,6 +850,7 @@ namespace HoldPointShowdown.Editor
         GameObject player = new("蓝方玩家");
         player.transform.position = position;
         player.layer = LayerMask.NameToLayer("Ignore Raycast");
+        player.AddComponent<AudioFeedback>();
 
         CharacterController characterController = player.AddComponent<CharacterController>();
         characterController.height = 2.75f;
@@ -746,6 +859,7 @@ namespace HoldPointShowdown.Editor
 
         Damageable damageable = player.AddComponent<Damageable>();
         damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, 0f);
+        player.AddComponent<CombatantStats>();
         player.AddComponent<TeamMember>().Configure(TeamId.Blue);
 
         GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.BluePrefabPath, player.transform);
@@ -770,6 +884,7 @@ namespace HoldPointShowdown.Editor
             position,
             Quaternion.Euler(0f, team == TeamId.Blue ? 0f : 180f, 0f));
         target.transform.SetParent(parent, true);
+        target.AddComponent<AudioFeedback>();
 
         CharacterController characterController = target.AddComponent<CharacterController>();
         characterController.height = 2.75f;
@@ -778,6 +893,7 @@ namespace HoldPointShowdown.Editor
 
         Damageable damageable = target.AddComponent<Damageable>();
         damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, startingArmor);
+        target.AddComponent<CombatantStats>();
         target.AddComponent<TeamMember>().Configure(team);
 
         string visualPath = team == TeamId.Blue ? CharacterArtBuilder.BluePrefabPath : CharacterArtBuilder.RedPrefabPath;
@@ -1029,7 +1145,7 @@ namespace HoldPointShowdown.Editor
         private static void ConfigureBuildScenes()
         {
             List<EditorBuildSettingsScene> scenes = new();
-            foreach (string sceneName in new[] { "Bootstrap", "MainMenu", "TestGym", "ArenaTown" })
+            foreach (string sceneName in new[] { "MainMenu", "ArenaTown", "TestGym", "Bootstrap" })
             {
                 scenes.Add(new EditorBuildSettingsScene($"{ScenesRoot}/{sceneName}.unity", true));
             }

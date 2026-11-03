@@ -179,6 +179,10 @@ namespace HoldPointShowdown.Player
             }
 
             Keyboard keyboard = Keyboard.current;
+            if (MobileInputBridge.TryConsumeSupply(out SupplyKind mobileSupply))
+            {
+                TryUse(mobileSupply);
+            }
             if (keyboard == null)
             {
                 return;

@@ -11,7 +11,7 @@ namespace HoldPointShowdown.Data
         [SerializeField, Min(1)] private int _maxCarriedWeapons = 2;
 
         [Header("Consumables")]
-        [SerializeField, Min(1)] private int _ammoPackAmount = 30;
+        [SerializeField, Min(1)] private int _ammoPackAmount = 18;
         [SerializeField, Min(1f)] private float _medkitHealing = 40f;
         [SerializeField, Min(1f)] private float _armorPlateRestore = 30f;
 
@@ -32,7 +32,7 @@ namespace HoldPointShowdown.Data
             int backpackSlots = 12,
             int weaponSlotCost = 3,
             int maxCarriedWeapons = 2,
-            int ammoPackAmount = 30,
+            int ammoPackAmount = 18,
             float medkitHealing = 40f,
             float armorPlateRestore = 30f,
             float pickupRespawnSeconds = 22f,

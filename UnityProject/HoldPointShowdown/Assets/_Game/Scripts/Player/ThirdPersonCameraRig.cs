@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using HoldPointShowdown.Presentation;
+using HoldPointShowdown.UI;
 
 namespace HoldPointShowdown.Player
 {
@@ -15,6 +16,8 @@ namespace HoldPointShowdown.Player
         [SerializeField, Min(1f)] private float _distance = 9f;
         [SerializeField] private float _shoulderOffset = 1f;
         [SerializeField, Min(0f)] private float _collisionRadius = 0.34f;
+        [SerializeField, Min(0.1f)] private float _minimumObstacleDistance = 0.9f;
+        [SerializeField] private LayerMask _collisionMask = Physics.DefaultRaycastLayers;
 
         [Header("Perspective")]
         [SerializeField] private Vector3 _firstPersonOffset = new(0f, 2.28f, 0.12f);
@@ -37,6 +40,8 @@ namespace HoldPointShowdown.Player
         private float _zoomVelocity;
         private bool _isFirstPerson;
         private Renderer[] _localBodyRenderers;
+        private Transform _deathFocusTarget;
+        private float _deathFocusUntil;
 
         public float CurrentDistance => _currentDistance;
         public float TargetDistance => _targetDistance;
@@ -77,6 +82,19 @@ namespace HoldPointShowdown.Player
                     bodyRenderer.forceRenderingOff = firstPerson;
                 }
             }
+        }
+
+        public void BeginDeathFocus(Transform killer, float duration)
+        {
+            _deathFocusTarget = killer;
+            _deathFocusUntil = Time.unscaledTime + Mathf.Max(0.2f, duration);
+            SetFirstPerson(false);
+        }
+
+        public void EndDeathFocus()
+        {
+            _deathFocusTarget = null;
+            _deathFocusUntil = 0f;
         }
 
         public void ApplyLookDelta(Vector2 lookDelta, bool mouseInput)
@@ -130,6 +148,21 @@ namespace HoldPointShowdown.Player
             {
                 return;
             }
+            if (PauseMenuController.IsPaused)
+            {
+                return;
+            }
+
+            if (_deathFocusTarget != null && Time.unscaledTime < _deathFocusUntil)
+            {
+                Vector3 focus = _deathFocusTarget.position + (Vector3.up * 1.45f);
+                Vector3 backward = _deathFocusTarget.forward.sqrMagnitude > 0.01f
+                    ? -_deathFocusTarget.forward
+                    : Vector3.back;
+                Vector3 position = focus + (backward * 3.8f) + (Vector3.up * 0.7f);
+                transform.SetPositionAndRotation(position, Quaternion.LookRotation(focus - position, Vector3.up));
+                return;
+            }
 
             ReadAimInput();
             ReadPerspectiveInput();
@@ -166,11 +199,11 @@ namespace HoldPointShowdown.Player
                     direction.normalized,
                     out RaycastHit hit,
                     direction.magnitude,
-                    Physics.DefaultRaycastLayers,
+                    _collisionMask,
                     QueryTriggerInteraction.Ignore))
             {
                 desiredPosition = pivot + (
-                    direction.normalized * Mathf.Max(0.1f, hit.distance - _collisionRadius));
+                    direction.normalized * Mathf.Max(_minimumObstacleDistance, hit.distance - _collisionRadius));
             }
 
             transform.SetPositionAndRotation(desiredPosition, rotation);
@@ -178,9 +211,18 @@ namespace HoldPointShowdown.Player
 
         private void ReadAimInput()
         {
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (Cursor.lockState != CursorLockMode.Locked && !MobileInputBridge.IsEnabled)
             {
                 return;
+            }
+
+            if (MobileInputBridge.IsEnabled)
+            {
+                Vector2 mobileLook = MobileInputBridge.ConsumeLookDelta();
+                if (mobileLook.sqrMagnitude > 0f)
+                {
+                    ApplyLookDelta(mobileLook, true);
+                }
             }
 
             if (Mouse.current != null)

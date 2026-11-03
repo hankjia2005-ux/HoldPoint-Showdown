@@ -1,6 +1,7 @@
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Presentation;
+using HoldPointShowdown.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -33,7 +34,6 @@ namespace HoldPointShowdown.Player
         private InputAction _sprintAction;
         private InputAction _fireAction;
         private InputAction _reloadAction;
-        private InputAction _cursorAction;
         private float _verticalVelocity;
         private bool _isCrouching;
         private bool _isSprinting;
@@ -105,7 +105,6 @@ namespace HoldPointShowdown.Player
             _fireAction.AddBinding("<Gamepad>/rightTrigger");
             _reloadAction = new InputAction("Reload", InputActionType.Button, "<Keyboard>/r");
             _reloadAction.AddBinding("<Gamepad>/buttonWest");
-            _cursorAction = new InputAction("Toggle Cursor", InputActionType.Button, "<Keyboard>/escape");
         }
 
         private void OnEnable()
@@ -116,7 +115,6 @@ namespace HoldPointShowdown.Player
             _sprintAction.Enable();
             _fireAction.Enable();
             _reloadAction.Enable();
-            _cursorAction.Enable();
             _cursorUnlockedByUser = false;
             SetCursorLocked(true);
         }
@@ -130,7 +128,6 @@ namespace HoldPointShowdown.Player
             _sprintAction.Disable();
             _fireAction.Disable();
             _reloadAction.Disable();
-            _cursorAction.Disable();
         }
 
         private void OnDestroy()
@@ -141,7 +138,6 @@ namespace HoldPointShowdown.Player
             _sprintAction?.Dispose();
             _fireAction?.Dispose();
             _reloadAction?.Dispose();
-            _cursorAction?.Dispose();
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -154,11 +150,10 @@ namespace HoldPointShowdown.Player
 
         private void Update()
         {
-            if (_cursorAction.WasPressedThisFrame())
+            if (PauseMenuController.IsPaused)
             {
-                bool shouldLock = Cursor.lockState != CursorLockMode.Locked;
-                _cursorUnlockedByUser = !shouldLock;
-                SetCursorLocked(shouldLock);
+                SetSprinting(false);
+                return;
             }
 
             if (Cursor.lockState != CursorLockMode.Locked
@@ -196,12 +191,13 @@ namespace HoldPointShowdown.Player
 
             Move();
 
-            if (Cursor.lockState == CursorLockMode.Locked && _fireAction.IsPressed())
+            if ((Cursor.lockState == CursorLockMode.Locked || MobileInputBridge.IsEnabled)
+                && (_fireAction.IsPressed() || MobileInputBridge.FireHeld))
             {
                 _weapon?.TryFire();
             }
 
-            if (_reloadAction.WasPressedThisFrame())
+            if (_reloadAction.WasPressedThisFrame() || MobileInputBridge.ConsumeReload())
             {
                 _weapon?.Reload();
             }
@@ -210,6 +206,10 @@ namespace HoldPointShowdown.Player
         private void Move()
         {
             Vector2 input = _moveAction.ReadValue<Vector2>();
+            if (MobileInputBridge.IsEnabled)
+            {
+                input = Vector2.ClampMagnitude(input + MobileInputBridge.Move, 1f);
+            }
             Transform cameraTransform = _playerCamera != null ? _playerCamera.transform : transform;
             Vector3 cameraForward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
             Vector3 cameraRight = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
@@ -222,13 +222,13 @@ namespace HoldPointShowdown.Player
 
             bool sprinting = !_isCrouching
                 && horizontal.sqrMagnitude > 0.01f
-                && _sprintAction.IsPressed();
+                && (_sprintAction.IsPressed() || MobileInputBridge.SprintHeld);
             SetSprinting(sprinting);
 
             if (_characterController.isGrounded)
             {
                 _verticalVelocity = -2f;
-                if (_jumpAction.WasPressedThisFrame() && !_isCrouching)
+                if ((_jumpAction.WasPressedThisFrame() || MobileInputBridge.ConsumeJump()) && !_isCrouching)
                 {
                     _verticalVelocity = Mathf.Sqrt(2f * _gravity * _jumpHeight);
                 }
@@ -259,7 +259,7 @@ namespace HoldPointShowdown.Player
 
         private bool ShouldToggleCrouch()
         {
-            bool toggle = _crouchAction.WasPressedThisFrame();
+            bool toggle = _crouchAction.WasPressedThisFrame() || MobileInputBridge.ConsumeCrouch();
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null || !keyboard.sKey.wasPressedThisFrame)
             {

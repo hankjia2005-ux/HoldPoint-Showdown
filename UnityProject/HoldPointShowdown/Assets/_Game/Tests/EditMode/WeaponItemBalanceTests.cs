@@ -23,14 +23,15 @@ namespace HoldPointShowdown.Tests
         }
 
         [Test]
-        public void FourWeaponTiers_StayInsidePlayableDemoEnvelope()
+        public void FiveWeaponTiers_StayInsidePlayableDemoEnvelope()
         {
             WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 20f, 4f, 1, 0.8f, 12);
             WeaponConfig smg = CreateWeapon("冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon, 13f, 10f, 1, 2.15f, 30);
             WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 22f, 6f, 1, 0.65f, 24);
-            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 8f, 2.2f, 8, 6.4f, 8);
+            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 7f, 2.5f, 8, 6.4f, 8);
+            WeaponConfig golden = CreateWeapon("金色步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary, 25f, 6.6f, 1, 0.5f, 25);
 
-            foreach (WeaponConfig weapon in new[] { pistol, smg, rifle, shotgun })
+            foreach (WeaponConfig weapon in new[] { pistol, smg, rifle, shotgun, golden })
             {
                 Assert.That(CombatBalance.IsWithinDemoBalanceEnvelope(weapon), Is.True,
                     $"{weapon.DisplayName}: DPS={weapon.BodyDps:0.0}, TTK={weapon.IdealArmoredTtk:0.00}");
@@ -40,6 +41,7 @@ namespace HoldPointShowdown.Tests
             Assert.That(pistol.BodyDps, Is.LessThan(smg.BodyDps));
             Assert.That(smg.BodyDps, Is.LessThanOrEqualTo(rifle.BodyDps));
             Assert.That(rifle.BodyDps, Is.LessThan(shotgun.BodyDps));
+            Assert.That(shotgun.BodyDps, Is.LessThan(golden.BodyDps));
             Assert.That(pistol.IdealArmoredTtk, Is.GreaterThan(shotgun.IdealArmoredTtk));
         }
 
@@ -56,7 +58,7 @@ namespace HoldPointShowdown.Tests
 
             WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 20f, 4f, 1, 0.8f, 12);
             WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 22f, 6f, 1, 0.65f, 24);
-            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 8f, 2.2f, 8, 6.4f, 8);
+            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 7f, 2.5f, 8, 6.4f, 8);
 
             loadout.Configure(weapon, balance.MaxCarriedWeapons, pistol);
             inventory.Configure(weapon, damageable, loadout, balance);

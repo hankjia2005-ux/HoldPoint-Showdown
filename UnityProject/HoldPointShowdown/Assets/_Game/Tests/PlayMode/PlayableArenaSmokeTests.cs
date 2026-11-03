@@ -6,15 +6,31 @@ using HoldPointShowdown.Data;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
+using HoldPointShowdown.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using UnityEngine.TestTools;
 
 namespace HoldPointShowdown.Tests
 {
     public sealed class PlayableArenaSmokeTests
     {
+        [UnityTest]
+        public IEnumerator MainMenu_HasClickableChineseEntryPoints()
+        {
+            SceneManager.LoadScene("MainMenu");
+            yield return null;
+            yield return null;
+
+            Assert.That(Object.FindAnyObjectByType<MainMenuController>(), Is.Not.Null);
+            Assert.That(Object.FindAnyObjectByType<EventSystem>(), Is.Not.Null);
+            Assert.That(Object.FindObjectsByType<Button>(FindObjectsInactive.Exclude).Length, Is.EqualTo(3));
+            Assert.That(Object.FindAnyObjectByType<PrototypeSceneLabel>(), Is.Null);
+        }
+
         [UnityTest]
         public IEnumerator ArenaTown_LoadsCompletePlayableItemCombatLoop()
         {
@@ -181,6 +197,33 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator FinalBattle_DeploysLegendaryGoldenAirdrop()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+            match.Rules.SetDemoValues(1f, 1.1f, 10f, 0.05f, 0.05f, 0.05f, 2);
+            match.StartMatch();
+            yield return new WaitForSeconds(1.25f);
+
+            GoldenAirdrop airdrop = Object.FindAnyObjectByType<GoldenAirdrop>();
+            Assert.That(airdrop, Is.Not.Null);
+            Assert.That(airdrop.IsDeployed, Is.True);
+            bool foundLegendary = false;
+            foreach (WorldItemPickup pickup in Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude))
+            {
+                foundLegendary |= pickup.Weapon != null && pickup.Weapon.Rarity == ItemRarity.Legendary;
+            }
+            Assert.That(foundLegendary, Is.True);
+        }
+
+        [UnityTest]
         public IEnumerator EnemyAI_AcquiresOpponentAndAdvancesAcrossMap()
         {
             SceneManager.LoadScene("ArenaTown");
@@ -194,6 +237,7 @@ namespace HoldPointShowdown.Tests
             {
                 startingPositions[index] = bots[index].transform.position;
                 Assert.That(bots[index].MoveSpeed, Is.GreaterThanOrEqualTo(6f));
+                Assert.That(bots[index].BurstSize, Is.EqualTo(3));
             }
 
             yield return new WaitForSeconds(1.1f);
@@ -326,7 +370,7 @@ namespace HoldPointShowdown.Tests
                 new Vector2(spawnPosition.x, spawnPosition.z)), Is.LessThan(0.15f));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
             Assert.That(weapon.MagazineAmmo, Is.EqualTo(12));
-            Assert.That(weapon.ReserveAmmo, Is.EqualTo(30));
+            Assert.That(weapon.ReserveAmmo, Is.EqualTo(18));
             Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
         }
 
@@ -377,6 +421,43 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator RaidPhase_ProtectsOnlyThreeMeterSpawnBubble()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+            match.Rules.SetDemoValues(0.1f, 10f, 20f, 0.05f, 0.05f, 0.05f, 2);
+            match.StartMatch();
+            yield return new WaitForSeconds(2.1f);
+
+            CombatantLifecycle player = match.GetHumanPlayer();
+            BaseProtectionZone[] zones = Object.FindObjectsByType<BaseProtectionZone>(FindObjectsInactive.Exclude);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Raid));
+            Assert.That(zones[0].IsProtectionActive || zones[1].IsProtectionActive, Is.False);
+            Assert.That(zones[0].IsSpawnProtectionActive && zones[1].IsSpawnProtectionActive, Is.True);
+            yield return new WaitForFixedUpdate();
+            Assert.That(player.Damageable.IsInvulnerable, Is.True);
+            player.Damageable.ApplyDamage(50f, player.transform.position, null);
+            Assert.That(player.Damageable.CurrentHealth, Is.EqualTo(100f));
+
+            CharacterController controller = player.GetComponent<CharacterController>();
+            controller.enabled = false;
+            player.transform.position = player.SpawnPosition + (Vector3.right * 4.2f);
+            controller.enabled = true;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            Assert.That(player.Damageable.IsInvulnerable, Is.False);
+            player.Damageable.ApplyDamage(10f, player.transform.position, null);
+            Assert.That(player.Damageable.CurrentHealth, Is.LessThan(100f));
+        }
+
+        [UnityTest]
         public IEnumerator FinalBattle_TwoDeathsEliminatePlayers_AndResolveVictory()
         {
             SceneManager.LoadScene("ArenaTown");
@@ -406,6 +487,10 @@ namespace HoldPointShowdown.Tests
                     continue;
                 }
 
+                CharacterController redController = combatant.GetComponent<CharacterController>();
+                redController.enabled = false;
+                combatant.transform.position += Vector3.forward * 4.2f;
+                redController.enabled = true;
                 combatant.Damageable.SetInvulnerable(false);
                 combatant.Damageable.ApplyDamage(999f, combatant.transform.position, null);
             }
@@ -421,6 +506,20 @@ namespace HoldPointShowdown.Tests
                 }
             }
 
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                if (combatant.Team != TeamId.Red)
+                {
+                    continue;
+                }
+
+                CharacterController redController = combatant.GetComponent<CharacterController>();
+                redController.enabled = false;
+                combatant.transform.position += Vector3.forward * 4.2f;
+                redController.enabled = true;
+            }
+
+            yield return new WaitForSeconds(2.05f);
             foreach (CombatantLifecycle combatant in match.Combatants)
             {
                 if (combatant.Team != TeamId.Red)

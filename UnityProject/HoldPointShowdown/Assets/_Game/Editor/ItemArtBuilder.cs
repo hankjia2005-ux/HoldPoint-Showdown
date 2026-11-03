@@ -12,12 +12,14 @@ namespace HoldPointShowdown.Editor
         public const string SmgAssetPath = "Assets/_Game/Data/Weapons/GreenSmg.asset";
         public const string RifleAssetPath = "Assets/_Game/Data/Weapons/BlueRifle.asset";
         public const string ShotgunAssetPath = "Assets/_Game/Data/Weapons/PurpleAutoShotgun.asset";
+        public const string GoldenRifleAssetPath = "Assets/_Game/Data/Weapons/GoldenAirdropRifle.asset";
         public const string BalanceAssetPath = "Assets/_Game/Data/GameBalanceConfig.asset";
 
         public const string PistolPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab";
         public const string SmgPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab";
         public const string RiflePrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_Rifle.prefab";
         public const string ShotgunPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_AutoShotgun.prefab";
+        public const string GoldenRiflePrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_GoldenRifle.prefab";
         public const string AmmoPrefabPath = "Assets/_Game/Art/Items/Prefabs/Pickup_Ammo.prefab";
         public const string MedkitPrefabPath = "Assets/_Game/Art/Items/Prefabs/Pickup_Medkit.prefab";
         public const string ArmorPrefabPath = "Assets/_Game/Art/Items/Prefabs/Pickup_Armor.prefab";
@@ -41,6 +43,7 @@ namespace HoldPointShowdown.Editor
             Material uncommon = GetOrCreateMaterial(MaterialRoot + "/Rarity_Uncommon.mat", new Color(0.22f, 0.86f, 0.42f), 0.3f, 0.15f);
             Material rare = GetOrCreateMaterial(MaterialRoot + "/Rarity_Rare.mat", new Color(0.18f, 0.55f, 1f), 0.35f, 0.2f);
             Material epic = GetOrCreateMaterial(MaterialRoot + "/Rarity_Epic.mat", new Color(0.66f, 0.28f, 1f), 0.4f, 0.25f);
+            Material legendary = GetOrCreateMaterial(MaterialRoot + "/Rarity_Legendary.mat", new Color(1f, 0.7f, 0.08f), 0.72f, 0.65f);
             Material white = GetOrCreateMaterial(MaterialRoot + "/MedicalWhite.mat", new Color(0.95f, 0.98f, 1f), 0.25f, 0f);
             Material coral = GetOrCreateMaterial(MaterialRoot + "/MedicalCoral.mat", new Color(1f, 0.26f, 0.22f), 0.25f, 0f);
             Material ammoGold = GetOrCreateMaterial(MaterialRoot + "/AmmoGold.mat", new Color(1f, 0.66f, 0.12f), 0.55f, 0.45f);
@@ -51,30 +54,35 @@ namespace HoldPointShowdown.Editor
             GameObject smgModel = BuildSmg(gunMetal, darkPolymer, uncommon, glow);
             GameObject rifleModel = BuildRifle(gunMetal, darkPolymer, rare, glow);
             GameObject shotgunModel = BuildShotgun(gunMetal, darkPolymer, epic, glow);
+            GameObject goldenRifleModel = BuildGoldenRifle(rare, legendary);
             BuildAmmoPickup(darkPolymer, ammoGold, glow);
             BuildMedkitPickup(white, coral, glow);
             BuildArmorPickup(darkPolymer, armorCyan, glow);
 
             WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(PistolAssetPath);
             pistol.SetBalancedValues("weapon.pistol.common", "白色基础手枪", WeaponArchetype.Pistol, ItemRarity.Common,
-                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 30, 1.4f, 30, 180f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
+                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 18, 1.4f, 12, 180f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
 
             WeaponConfig smg = GetOrCreateAsset<WeaponConfig>(SmgAssetPath);
             smg.SetBalancedValues("weapon.smg.uncommon", "绿色疾风冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon,
-                AmmoKind.Light, 13f, 10f, 1, 2.15f, 30, 90, 2f, 36, 150f, smgModel, new Color(0.22f, 0.86f, 0.42f));
+                AmmoKind.Light, 13f, 10f, 1, 2.15f, 30, 45, 2f, 20, 150f, smgModel, new Color(0.22f, 0.86f, 0.42f));
 
             WeaponConfig rifle = GetOrCreateAsset<WeaponConfig>(RifleAssetPath);
             rifle.SetBalancedValues("weapon.rifle.rare", "蓝色先锋步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare,
-                AmmoKind.Rifle, 22f, 6f, 1, 0.65f, 24, 72, 2.2f, 30, 220f, rifleModel, new Color(0.18f, 0.55f, 1f));
+                AmmoKind.Rifle, 22f, 6f, 1, 0.65f, 24, 36, 2.2f, 18, 220f, rifleModel, new Color(0.18f, 0.55f, 1f));
 
             WeaponConfig shotgun = GetOrCreateAsset<WeaponConfig>(ShotgunAssetPath);
             shotgun.SetBalancedValues("weapon.shotgun.epic", "紫色风暴连发霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic,
-                AmmoKind.Shell, 8f, 2.2f, 8, 6.4f, 8, 32, 2.6f, 12, 55f, shotgunModel, new Color(0.66f, 0.28f, 1f));
+                AmmoKind.Shell, 7f, 2.5f, 8, 6.4f, 8, 12, 2.6f, 6, 55f, shotgunModel, new Color(0.66f, 0.28f, 1f));
+
+            WeaponConfig goldenRifle = GetOrCreateAsset<WeaponConfig>(GoldenRifleAssetPath);
+            goldenRifle.SetBalancedValues("weapon.rifle.legendary", "金色破晓步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary,
+                AmmoKind.Rifle, 25f, 6.6f, 1, 0.5f, 25, 38, 2.1f, 18, 240f, goldenRifleModel, new Color(1f, 0.7f, 0.08f));
 
             GameBalanceConfig balance = GetOrCreateAsset<GameBalanceConfig>(BalanceAssetPath);
             balance.SetDemoValues();
 
-            foreach (Object asset in new Object[] { pistol, smg, rifle, shotgun, balance })
+            foreach (Object asset in new Object[] { pistol, smg, rifle, shotgun, goldenRifle, balance })
             {
                 EditorUtility.SetDirty(asset);
             }
@@ -151,6 +159,27 @@ namespace HoldPointShowdown.Editor
             Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.06f, 1.69f));
             root.AddComponent<WeaponModelBinding>().Configure(muzzle);
             return SavePrefab(root, ShotgunPrefabPath);
+        }
+
+        private static GameObject BuildGoldenRifle(Material rare, Material legendary)
+        {
+            GameObject contents = PrefabUtility.LoadPrefabContents(RiflePrefabPath);
+            contents.name = "金色破晓步枪";
+            foreach (Renderer renderer in contents.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] materials = renderer.sharedMaterials;
+                for (int index = 0; index < materials.Length; index++)
+                {
+                    if (materials[index] == rare)
+                    {
+                        materials[index] = legendary;
+                    }
+                }
+                renderer.sharedMaterials = materials;
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, GoldenRiflePrefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+            return AssetDatabase.LoadAssetAtPath<GameObject>(GoldenRiflePrefabPath);
         }
 
         private static void BuildAmmoPickup(Material dark, Material gold, Material glow)

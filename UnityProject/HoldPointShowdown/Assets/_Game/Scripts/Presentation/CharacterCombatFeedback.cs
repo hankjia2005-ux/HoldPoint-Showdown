@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using HoldPointShowdown.Combat;
 using UnityEngine;
 
@@ -11,6 +12,7 @@ namespace HoldPointShowdown.Presentation
         private BlockCharacterVisual _visual;
         private ParticleSystem _deathBurst;
         private Coroutine _flashRoutine;
+        private Coroutine _invulnerabilityRoutine;
 
         private void Start()
         {
@@ -33,6 +35,7 @@ namespace HoldPointShowdown.Presentation
                 _damageable.Damaged += HandleDamaged;
                 _damageable.Died += HandleDied;
                 _damageable.ResetCompleted += HandleReset;
+                _damageable.InvulnerabilityGranted += HandleInvulnerabilityGranted;
             }
         }
 
@@ -65,6 +68,87 @@ namespace HoldPointShowdown.Presentation
         private void HandleReset(Damageable _)
         {
             SetRenderersEnabled(true);
+        }
+
+        public void CaptureCorpse(Vector3 deathPosition)
+        {
+            if (_visual == null || _visual.Renderers == null)
+            {
+                return;
+            }
+
+            GameObject corpse = new("倒地残影");
+            corpse.transform.SetPositionAndRotation(deathPosition, transform.rotation);
+            List<Renderer> corpseRenderers = new();
+            foreach (Renderer source in _visual.Renderers)
+            {
+                if (source == null || source.GetComponent<MeshFilter>() == null)
+                {
+                    continue;
+                }
+
+                GameObject part = new(source.gameObject.name);
+                part.transform.SetParent(corpse.transform, false);
+                part.transform.localPosition = transform.InverseTransformPoint(source.transform.position);
+                part.transform.localRotation = Quaternion.Inverse(transform.rotation) * source.transform.rotation;
+                part.transform.localScale = source.transform.lossyScale;
+                part.AddComponent<MeshFilter>().sharedMesh = source.GetComponent<MeshFilter>().sharedMesh;
+                MeshRenderer renderer = part.AddComponent<MeshRenderer>();
+                renderer.sharedMaterials = source.sharedMaterials;
+                corpseRenderers.Add(renderer);
+            }
+
+            StartCoroutine(FadeCorpse(corpse, corpseRenderers));
+        }
+
+        private void HandleInvulnerabilityGranted(float duration)
+        {
+            if (_invulnerabilityRoutine != null)
+            {
+                StopCoroutine(_invulnerabilityRoutine);
+            }
+            _invulnerabilityRoutine = StartCoroutine(InvulnerabilityFlash(duration));
+        }
+
+        private IEnumerator InvulnerabilityFlash(float duration)
+        {
+            float endsAt = Time.unscaledTime + duration;
+            bool bright = false;
+            while (Time.unscaledTime < endsAt)
+            {
+                bright = !bright;
+                SetFlashColor(bright
+                    ? new Color(0.4f, 0.95f, 1f, 0.62f)
+                    : new Color(0.82f, 1f, 1f, 0.82f));
+                yield return new WaitForSecondsRealtime(0.12f);
+            }
+            ClearFlashColor();
+            _invulnerabilityRoutine = null;
+        }
+
+        private static IEnumerator FadeCorpse(GameObject corpse, List<Renderer> renderers)
+        {
+            corpse.transform.rotation *= Quaternion.Euler(0f, 0f, 78f);
+            float duration = 1.15f;
+            float elapsed = 0f;
+            MaterialPropertyBlock block = new();
+            while (elapsed < duration && corpse != null)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                corpse.transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.82f, t);
+                corpse.transform.position += Vector3.down * (0.12f * Time.unscaledDeltaTime);
+                block.SetColor("_BaseColor", Color.Lerp(Color.white, new Color(0.2f, 0.25f, 0.3f, 0.05f), t));
+                foreach (Renderer renderer in renderers)
+                {
+                    renderer?.SetPropertyBlock(block);
+                }
+                yield return null;
+            }
+            if (corpse != null)
+            {
+                Destroy(corpse);
+            }
         }
 
         private IEnumerator FlashRoutine()
@@ -157,6 +241,7 @@ namespace HoldPointShowdown.Presentation
             _damageable.Damaged -= HandleDamaged;
             _damageable.Died -= HandleDied;
             _damageable.ResetCompleted -= HandleReset;
+            _damageable.InvulnerabilityGranted -= HandleInvulnerabilityGranted;
             _damageable = null;
         }
     }

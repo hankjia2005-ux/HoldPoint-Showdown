@@ -23,8 +23,8 @@ MonoBehaviour:
   _spreadDegrees: 0.65
   _range: 220
   _magazineSize: 24
-  _startingReserveAmmo: 72
+  _startingReserveAmmo: 36
   _reloadSeconds: 2.2
-  _ammoPerPickup: 30
+  _ammoPerPickup: 18
   _modelPrefab: {fileID: 3867494832608575697, guid: caed99760a388bd4b957fe384abe9a50, type: 3}
   _rarityColor: {r: 0.18, g: 0.55, b: 1, a: 1}

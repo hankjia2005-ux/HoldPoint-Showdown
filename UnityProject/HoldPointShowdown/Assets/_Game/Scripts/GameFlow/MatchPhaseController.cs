@@ -74,6 +74,7 @@ namespace HoldPointShowdown.GameFlow
             foreach (CombatantLifecycle combatant in _combatants)
             {
                 combatant?.InitializeForMatch();
+                combatant?.GetComponent<CombatantStats>()?.ResetStats();
             }
 
             _matchStartedAt = Time.time;

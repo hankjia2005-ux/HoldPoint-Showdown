@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7398eb07c1d9b28409046cb7de92c64e, type: 3}
   m_Name: GameRuleConfig
   m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.GameRuleConfig
-  _scavengeEndsAt: 180
-  _raidEndsAt: 300
-  _matchEndsAt: 720
+  _scavengeEndsAt: 120
+  _raidEndsAt: 270
+  _matchEndsAt: 540
   _scavengeRespawnDelay: 0.75
   _raidRespawnDelay: 5
   _finalRespawnDelay: 5

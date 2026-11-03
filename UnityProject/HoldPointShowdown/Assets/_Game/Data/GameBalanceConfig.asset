@@ -15,7 +15,7 @@ MonoBehaviour:
   _backpackSlots: 12
   _weaponSlotCost: 3
   _maxCarriedWeapons: 2
-  _ammoPackAmount: 30
+  _ammoPackAmount: 18
   _medkitHealing: 40
   _armorPlateRestore: 30
   _pickupRespawnSeconds: 22

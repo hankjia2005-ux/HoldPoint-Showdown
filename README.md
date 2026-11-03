@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 阶段：项目基础设施与玩法原型
+- 阶段：可玩纵向切片（反馈、物资、AI 与完整结算联调中）
 - Unity：6000.6.6f1
 - 渲染：Universal Render Pipeline 17.6
 - 目标平台：Windows（主开发）/ Android（后续适配）
@@ -33,12 +33,16 @@ Unity 工程位于 `UnityProject/HoldPointShowdown`。
 键鼠原型操作：
 
 - `WASD`：移动
+- 按住 `Left Shift`：疾跑
 - 鼠标：旋转视角
 - `Space`：跳跃
-- `Left Ctrl`：下蹲
+- 快速双击 `S`：切换蹲走（`Left Ctrl` 保留为备用键）
+- `V`：切换第一/第三人称；滚轮缩放第三人称距离
 - 鼠标左键：射击
 - `R`：换弹
-- `Esc`：释放/锁定鼠标
+- `E`：打开物资箱或共享箱
+- `Esc`：暂停/继续
+- `F11`：全屏/窗口切换
 
 ## 分支策略
 

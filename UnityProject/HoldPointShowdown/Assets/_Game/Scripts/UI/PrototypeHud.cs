@@ -3,6 +3,7 @@ using HoldPointShowdown.Core;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Player;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace HoldPointShowdown.UI
 {
@@ -23,8 +24,11 @@ namespace HoldPointShowdown.UI
         private Texture2D _blueTexture;
         private Texture2D _armorTexture;
         private Texture2D _darkTexture;
+        private Texture2D _crosshairTexture;
         private GUIStyle _messageStyle;
         private GUIStyle _resultStyle;
+        private GUIStyle _resultButtonStyle;
+        private bool _resultCursorReleased;
 
         public void Configure(
             MatchPhaseController match,
@@ -65,7 +69,7 @@ namespace HoldPointShowdown.UI
 
             GUI.Label(
                 new Rect((width * 0.5f) - 390f, height - 38f, 780f, 24f),
-                "WASD 移动  按住Shift疾跑  双击S蹲走  V切换视角  鼠标瞄准  滚轮缩放  左键射击  R换弹  1/2切枪  E开箱  F11全屏",
+                "WASD 移动  按住 Shift 疾跑  双击 S 蹲走  V 切换视角  左键射击  R 换弹  E 交互  Esc 暂停  F11 全屏",
                 _smallStyle);
 
             if (Cursor.lockState != CursorLockMode.Locked)
@@ -151,7 +155,6 @@ namespace HoldPointShowdown.UI
                 ? $"背包 {_inventory.UsedSlots}/{_inventory.Capacity}   弹{_inventory.AmmoPacks}  医{_inventory.Medkits}  甲{_inventory.ArmorPlates}"
                 : "背包 --";
             GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 208f, 20f), supplies, _smallStyle);
-            GUI.Label(new Rect(panel.x + 16f, panel.y + 93f, 208f, 18f), "基础手枪绑定 · 死亡不掉落", _smallStyle);
         }
 
         private void DrawMatchMessage(float width)
@@ -169,24 +172,64 @@ namespace HoldPointShowdown.UI
         {
             if (_match == null || _match.Result == MatchResult.None)
             {
+                _resultCursorReleased = false;
                 return;
             }
 
-            Rect panel = new((width * 0.5f) - 250f, (height * 0.5f) - 95f, 500f, 190f);
+            if (!_resultCursorReleased)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                _resultCursorReleased = true;
+            }
+
+            Rect panel = new((width * 0.5f) - 330f, (height * 0.5f) - 235f, 660f, 470f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
             string result = _match.Result switch
             {
-                MatchResult.BlueVictory => "蓝方胜利",
-                MatchResult.RedVictory => "红方胜利",
+                MatchResult.BlueVictory => "蓝方胜利！",
+                MatchResult.RedVictory => "红方胜利！",
                 _ => "本局平局"
             };
-            GUI.Label(new Rect(panel.x, panel.y + 34f, panel.width, 64f), result, _resultStyle);
-            GUI.Label(new Rect(panel.x, panel.y + 112f, panel.width, 34f), "比赛已结束 · 重新开始请返回编辑器或主菜单", _smallStyle);
+            GUI.Label(new Rect(panel.x, panel.y + 24f, panel.width, 58f), result, _resultStyle);
+
+            CombatantLifecycle player = _match.GetHumanPlayer();
+            CombatantStats stats = player != null ? player.GetComponent<CombatantStats>() : null;
+            CombatantStats mvp = CombatantStats.FindMvp();
+            string statLine = stats != null
+                ? $"淘汰  {stats.Eliminations}      输出  {stats.DamageDealt:0}      死亡  {stats.Deaths}      存活  {stats.SurvivalSeconds:0}s"
+                : "淘汰  --      输出  --      死亡  --      存活  --";
+            GUI.Label(new Rect(panel.x + 45f, panel.y + 105f, panel.width - 90f, 48f), statLine, _phaseStyle);
+            string mvpName = mvp != null ? mvp.gameObject.name : "暂无";
+            GUI.Label(new Rect(panel.x + 45f, panel.y + 170f, panel.width - 90f, 38f), $"本局 MVP：{mvpName}", _messageStyle);
+            GUI.Label(new Rect(panel.x + 45f, panel.y + 218f, panel.width - 90f, 32f),
+                "物资会重新刷新，双方回到初始装备", _smallStyle);
+
+            if (GUI.Button(new Rect(panel.x + 65f, panel.y + 285f, 245f, 62f), "再来一局", _resultButtonStyle))
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+            if (GUI.Button(new Rect(panel.x + 350f, panel.y + 285f, 245f, 62f), "返回主菜单", _resultButtonStyle))
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene("MainMenu");
+            }
+            GUI.Label(new Rect(panel.x, panel.y + 380f, panel.width, 30f), "感谢试玩《红蓝据点枪战》", _smallStyle);
         }
 
         private void DrawCrosshair(float width, float height)
         {
-            GUI.Label(new Rect((width * 0.5f) - 15f, (height * 0.5f) - 20f, 30f, 40f), "+", _crosshairStyle);
+            float spread = _weapon != null && _weapon.Config != null ? _weapon.Config.SpreadDegrees : 0f;
+            float gap = 8f + (spread * 12f);
+            const float length = 12f;
+            const float thickness = 2.5f;
+            float centerX = width * 0.5f;
+            float centerY = height * 0.5f;
+            GUI.DrawTexture(new Rect(centerX - (thickness * 0.5f), centerY - gap - length, thickness, length), _crosshairTexture);
+            GUI.DrawTexture(new Rect(centerX - (thickness * 0.5f), centerY + gap, thickness, length), _crosshairTexture);
+            GUI.DrawTexture(new Rect(centerX - gap - length, centerY - (thickness * 0.5f), length, thickness), _crosshairTexture);
+            GUI.DrawTexture(new Rect(centerX + gap, centerY - (thickness * 0.5f), length, thickness), _crosshairTexture);
         }
 
         private void DrawBar(Rect rect, float fill, Texture2D texture)
@@ -220,6 +263,7 @@ namespace HoldPointShowdown.UI
             _blueTexture = MakeTexture(new Color(0.12f, 0.68f, 1f, 1f));
             _armorTexture = MakeTexture(new Color(0.45f, 0.92f, 1f, 1f));
             _darkTexture = MakeTexture(new Color(0.06f, 0.09f, 0.13f, 0.95f));
+            _crosshairTexture = MakeTexture(new Color(0.9f, 0.98f, 1f, 0.92f));
 
             _panelStyle = new GUIStyle(GUI.skin.box);
             _panelStyle.normal.background = _panelTexture;
@@ -264,6 +308,12 @@ namespace HoldPointShowdown.UI
             {
                 fontSize = 38,
                 normal = { textColor = Color.white }
+            };
+            _resultButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 19,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
             };
         }
 
