@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -10,6 +11,8 @@ namespace HoldPointShowdown.UI
         [SerializeField] private Button _playButton;
         [SerializeField] private Button _trainingButton;
         [SerializeField] private Button _quitButton;
+
+        public Button PlayButton => _playButton;
 
         public void Configure(Button playButton, Button trainingButton, Button quitButton)
         {
@@ -26,6 +29,14 @@ namespace HoldPointShowdown.UI
             _playButton?.onClick.AddListener(() => LoadScene("ArenaTown"));
             _trainingButton?.onClick.AddListener(() => LoadScene("TestGym"));
             _quitButton?.onClick.AddListener(Quit);
+        }
+
+        private void Start()
+        {
+            if (_playButton != null && EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(_playButton.gameObject);
+            }
         }
 
         private static void LoadScene(string sceneName)

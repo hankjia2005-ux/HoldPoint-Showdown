@@ -27,6 +27,7 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField, Min(1f)] private float _interactionRange = 4.5f;
         [SerializeField, Min(1)] private int _maxPerKind = 20;
         [SerializeField, Min(1)] private int _maxStoredWeapons = 8;
+        [SerializeField] private GameBalanceConfig _balance;
         [SerializeField] private List<StoredWeapon> _storedWeapons = new();
 
         [SerializeField] private Transform _player;
@@ -40,6 +41,7 @@ namespace HoldPointShowdown.Gameplay
         private GUIStyle _titleStyle;
         private GUIStyle _bodyStyle;
         private Texture2D _panelTexture;
+        private float _nextBaseResupplyAt;
 
         public int AmmoPacks => _ammoPacks;
         public int Medkits => _medkits;
@@ -50,7 +52,7 @@ namespace HoldPointShowdown.Gameplay
         public int AddSupply(SupplyKind kind, int amount)
         {
             int before = GetStock(kind);
-            int after = Mathf.Clamp(before + Mathf.Max(0, amount), 0, _maxPerKind);
+            int after = Mathf.Clamp(before + Mathf.Max(0, amount), 0, GetCapacity(kind));
             SetStock(kind, after);
             if (after > before)
             {
@@ -64,7 +66,8 @@ namespace HoldPointShowdown.Gameplay
             Transform player,
             TeamMember playerTeam,
             PrototypeInventory inventory,
-            MatchPhaseController match = null)
+            MatchPhaseController match = null,
+            GameBalanceConfig balance = null)
         {
             _team = team;
             _player = player;
@@ -72,6 +75,8 @@ namespace HoldPointShowdown.Gameplay
             _inventory = inventory;
             _loadout = inventory != null ? inventory.Loadout : null;
             _match = match;
+            _balance = balance;
+            _maxStoredWeapons = balance != null ? balance.ChestCapWeapon : 4;
             _renderers = GetComponentsInChildren<Renderer>();
         }
 
@@ -85,6 +90,7 @@ namespace HoldPointShowdown.Gameplay
 
         private void Update()
         {
+            TickBaseResupply();
             if (!IsPlayerNearby() || _inventory == null)
             {
                 _isOpen = false;
@@ -168,7 +174,7 @@ namespace HoldPointShowdown.Gameplay
             GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享物资箱", _titleStyle);
             GUI.Label(
                 new Rect(panel.x + 24f, panel.y + 48f, panel.width - 48f, 112f),
-                $"取出：[F1] 弹药包 {_ammoPacks}/{_maxPerKind}   [F2] 医疗包 {_medkits}/{_maxPerKind}   [F3] 护甲片 {_armorPlates}/{_maxPerKind}\n" +
+                $"取出：[F1] 弹药包 {_ammoPacks}/{GetCapacity(SupplyKind.AmmoPack)}   [F2] 医疗包 {_medkits}/{GetCapacity(SupplyKind.Medkit)}   [F3] 护甲片 {_armorPlates}/{GetCapacity(SupplyKind.ArmorPlate)}\n" +
                 $"[F4] 武器 {_storedWeapons.Count}/{_maxStoredWeapons}   {FormatFirstStoredWeapon()}\n" +
                 $"个人背包：{_inventory.UsedSlots}/{_inventory.Capacity}   弹药 {_inventory.AmmoPacks} / 医疗 {_inventory.Medkits} / 护甲 {_inventory.ArmorPlates}",
                 _bodyStyle);
@@ -199,7 +205,12 @@ namespace HoldPointShowdown.Gameplay
 
         public bool TryDepositSupply(SupplyKind kind)
         {
-            if (_inventory == null || !IsFriendly() || GetStock(kind) >= _maxPerKind || !_inventory.TryRemove(kind))
+            return TryDepositSupply(_inventory, _playerTeam, kind);
+        }
+
+        public bool TryDepositSupply(PrototypeInventory source, TeamMember sourceTeam, SupplyKind kind)
+        {
+            if (source == null || !IsFriendly(sourceTeam) || GetStock(kind) >= GetCapacity(kind) || !source.TryRemove(kind))
             {
                 return false;
             }
@@ -211,20 +222,26 @@ namespace HoldPointShowdown.Gameplay
 
         public bool TryWithdrawSupply(SupplyKind kind)
         {
-            if (_inventory == null)
+            return TryWithdrawSupply(_inventory, _playerTeam, kind);
+        }
+
+        public bool TryWithdrawSupply(PrototypeInventory destination, TeamMember destinationTeam, SupplyKind kind)
+        {
+            if (destination == null)
             {
                 return false;
             }
 
             int stock = GetStock(kind);
-            if (stock <= 0 || !_inventory.TryAdd(kind))
+            if (stock <= 0 || !destination.TryAdd(kind))
             {
                 return false;
             }
 
             SetStock(kind, stock - 1);
-            NotifyTheftIfNeeded();
-            Flash(IsFriendly() ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f));
+            bool friendly = IsFriendly(destinationTeam);
+            NotifyTheftIfNeeded(friendly);
+            Flash(friendly ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f));
             return true;
         }
 
@@ -273,9 +290,9 @@ namespace HoldPointShowdown.Gameplay
                 : "暂无武器";
         }
 
-        private void NotifyTheftIfNeeded()
+        private void NotifyTheftIfNeeded(bool? friendlyOverride = null)
         {
-            if (!IsFriendly())
+            if (!(friendlyOverride ?? IsFriendly()))
             {
                 _match?.RaiseMessage($"{(_team == TeamId.Blue ? "蓝方" : "红方")}基地物资被抢", 3f);
             }
@@ -291,7 +308,12 @@ namespace HoldPointShowdown.Gameplay
 
         private bool IsFriendly()
         {
-            return _playerTeam != null && _playerTeam.Team == _team;
+            return IsFriendly(_playerTeam);
+        }
+
+        private bool IsFriendly(TeamMember member)
+        {
+            return member != null && member.Team == _team;
         }
 
         private bool IsPlayerNearby()
@@ -346,6 +368,31 @@ namespace HoldPointShowdown.Gameplay
                 case SupplyKind.ArmorPlate:
                     _armorPlates = value;
                     break;
+            }
+        }
+
+        private int GetCapacity(SupplyKind kind)
+        {
+            return _balance != null ? _balance.GetChestCapacity(kind) : _maxPerKind;
+        }
+
+        private void TickBaseResupply()
+        {
+            float interval = _balance != null ? _balance.BaseAmmoResupplySeconds : 90f;
+            if (_nextBaseResupplyAt <= 0f)
+            {
+                _nextBaseResupplyAt = Time.time + interval;
+                return;
+            }
+            if (Time.time < _nextBaseResupplyAt)
+            {
+                return;
+            }
+            _nextBaseResupplyAt = Time.time + interval;
+            int recoveryCap = _balance != null ? _balance.BaseAmmoResupplyCap : 2;
+            if (_ammoPacks < recoveryCap)
+            {
+                AddSupply(SupplyKind.AmmoPack, 1);
             }
         }
 

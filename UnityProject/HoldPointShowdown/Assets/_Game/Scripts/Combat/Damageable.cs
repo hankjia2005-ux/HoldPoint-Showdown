@@ -11,7 +11,10 @@ namespace HoldPointShowdown.Combat
         [SerializeField, Min(1f)] private float _maxHealth = 100f;
         [SerializeField, Min(0f)] private float _maxArmor;
         [SerializeField, Min(0f)] private float _startingArmor;
-        [SerializeField, Range(0f, 0.9f)] private float _armorAbsorptionFraction = 0.25f;
+        [SerializeField, Range(0.1f, 1f)] private float _armorDamageRatio = 1f;
+        [SerializeField, Min(1f)] private float _headMultiplier = 1.5f;
+        [SerializeField, Min(0.1f)] private float _torsoMultiplier = 1f;
+        [SerializeField, Min(0.1f)] private float _limbMultiplier = 0.8f;
         [SerializeField] private bool _resetAfterDeath = true;
         [SerializeField, Min(0.1f)] private float _resetDelay = 2f;
 
@@ -53,11 +56,14 @@ namespace HoldPointShowdown.Combat
         {
             if (balance == null)
             {
-                Configure(100f, 50f, resetAfterDeath, 0f);
+                Configure(100f, 40f, resetAfterDeath, 0f);
                 return;
             }
 
-            _armorAbsorptionFraction = balance.ArmorAbsorptionFraction;
+            _armorDamageRatio = balance.ArmorDamageRatio;
+            _headMultiplier = balance.HeadMultiplier;
+            _torsoMultiplier = balance.TorsoMultiplier;
+            _limbMultiplier = balance.LimbMultiplier;
             Configure(
                 balance.PlayerMaxHealth,
                 balance.PlayerMaxArmor,
@@ -86,6 +92,25 @@ namespace HoldPointShowdown.Combat
             }
         }
 
+        public void ClearTemporaryInvulnerability()
+        {
+            _invulnerableUntil = 0f;
+        }
+
+        public float EvaluateHitMultiplier(Collider hitCollider, Vector3 hitPoint)
+        {
+            Bounds bounds = hitCollider != null ? hitCollider.bounds : new Bounds(transform.position + Vector3.up, Vector3.one * 2f);
+            float normalizedHeight = Mathf.InverseLerp(bounds.min.y, bounds.max.y, hitPoint.y);
+            if (normalizedHeight >= 0.74f)
+            {
+                float horizontalOffset = new Vector2(hitPoint.x - bounds.center.x, hitPoint.z - bounds.center.z).magnitude;
+                float headRadius = Mathf.Max(bounds.extents.x, bounds.extents.z) * 0.7f;
+                return horizontalOffset <= headRadius ? _headMultiplier : _torsoMultiplier;
+            }
+
+            return normalizedHeight <= 0.38f ? _limbMultiplier : _torsoMultiplier;
+        }
+
         public void ApplyDamage(float amount, Vector3 hitPoint, GameObject instigator)
         {
             if (!IsAlive || IsInvulnerable || amount <= 0f)
@@ -94,13 +119,14 @@ namespace HoldPointShowdown.Combat
             }
 
             float healthBefore = CurrentHealth;
+            float armorBefore = CurrentArmor;
             float armorAbsorption = CurrentArmor > 0f
-                ? Mathf.Min(CurrentArmor, amount * _armorAbsorptionFraction)
+                ? Mathf.Min(CurrentArmor, amount / _armorDamageRatio)
                 : 0f;
             CurrentArmor -= armorAbsorption;
-            float healthDamage = amount - armorAbsorption;
+            float healthDamage = Mathf.Max(0f, amount - (armorAbsorption * _armorDamageRatio));
             CurrentHealth = Mathf.Max(0f, CurrentHealth - healthDamage);
-            float appliedDamage = healthBefore - CurrentHealth;
+            float appliedDamage = (healthBefore - CurrentHealth) + ((armorBefore - CurrentArmor) * _armorDamageRatio);
             LastInstigator = instigator;
             LastHitPoint = hitPoint;
             Damaged?.Invoke(this, appliedDamage, hitPoint, instigator);

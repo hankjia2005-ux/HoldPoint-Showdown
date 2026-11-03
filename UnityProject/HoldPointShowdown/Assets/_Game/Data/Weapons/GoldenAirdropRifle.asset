@@ -17,16 +17,30 @@ MonoBehaviour:
   _archetype: 2
   _rarity: 4
   _ammoKind: 1
-  _damage: 19
-  _shotsPerSecond: 4.2
+  _damage: 24
+  _shotsPerSecond: 4.8
   _pellets: 1
-  _spreadDegrees: 0.5
-  _range: 240
+  _spreadDegrees: 0.45
+  _fullDamageRange: 45
+  _midDamageRange: 110
+  _farDamageRange: 150
+  _range: 180
+  _midDamageMultiplier: 0.82
+  _farDamageMultiplier: 0.65
+  _beyondDamageMultiplier: 0.35
   _fireMode: 1
   _burstCount: 3
-  _magazineSize: 21
-  _startingReserveAmmo: 32
-  _reloadSeconds: 2.1
-  _ammoPerPickup: 11
+  _magazineSize: 20
+  _startingReserveAmmo: 40
+  _reserveAmmoCap: 60
+  _reloadSeconds: 2.2
+  _ammoPerPickup: 40
+  _spreadPerShot: 0.5
+  _maxSpreadDegrees: 3
+  _spreadRecovery: 14
+  _recoilVertical: 1.2
+  _recoilHorizontal: 0.3
+  _moveSpreadPenalty: 1.8
+  _adsSpreadMultiplier: 0.55
   _modelPrefab: {fileID: 3952713644575403548, guid: 238345074043aa246b84ff0e26531a75, type: 3}
   _rarityColor: {r: 1, g: 0.7, b: 0.08, a: 1}

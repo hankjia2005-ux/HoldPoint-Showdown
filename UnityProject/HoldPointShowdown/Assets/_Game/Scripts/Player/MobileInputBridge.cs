@@ -9,6 +9,7 @@ namespace HoldPointShowdown.Player
         public static Vector2 Move { get; private set; }
         public static bool FireHeld { get; private set; }
         public static bool SprintHeld { get; private set; }
+        public static bool AimHeld { get; private set; }
 
         private static Vector2 _lookDelta;
         private static bool _jumpPressed;
@@ -24,12 +25,13 @@ namespace HoldPointShowdown.Player
             if (!enabled) ResetContinuous();
         }
 
-        public static void SetContinuous(Vector2 move, Vector2 lookDelta, bool fire, bool sprint)
+        public static void SetContinuous(Vector2 move, Vector2 lookDelta, bool fire, bool sprint, bool aim = false)
         {
             Move = Vector2.ClampMagnitude(move, 1f);
             _lookDelta += lookDelta;
             FireHeld = fire;
             SprintHeld = sprint;
+            AimHeld = aim;
         }
 
         public static void PressJump() => _jumpPressed = true;
@@ -70,6 +72,7 @@ namespace HoldPointShowdown.Player
             _lookDelta = Vector2.zero;
             FireHeld = false;
             SprintHeld = false;
+            AimHeld = false;
         }
 
         private static bool Consume(ref bool value)

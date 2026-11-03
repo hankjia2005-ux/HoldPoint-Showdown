@@ -5,10 +5,12 @@ namespace HoldPointShowdown.Data
     public static class CombatBalance
     {
         public const float StandardHealth = 100f;
-        public const float StandardArmor = 50f;
-        public const float ArmorAbsorptionFraction = 0.25f;
-        // Armor takes 25% of each hit while health takes 75%. With 50 armor, health is the limiting pool.
-        public const float StandardEffectiveHealth = StandardHealth / (1f - ArmorAbsorptionFraction);
+        public const float StandardArmor = 40f;
+        public const float ArmorDamageRatio = 1f;
+        public const float HeadMultiplier = 1.5f;
+        public const float TorsoMultiplier = 1f;
+        public const float LimbMultiplier = 0.8f;
+        public const float StandardEffectiveHealth = StandardHealth + (StandardArmor * ArmorDamageRatio);
 
         public static float CalculateBodyDps(WeaponConfig weapon)
         {
@@ -46,9 +48,9 @@ namespace HoldPointShowdown.Data
             float dps = CalculateBodyDps(weapon);
             float ttk = CalculateIdealTimeToEliminate(weapon);
             float unarmoredTtk = CalculateIdealTimeToEliminate(weapon, StandardHealth);
-            float minimumTtk = weapon.Rarity == ItemRarity.Legendary ? 1.15f : 1.2f;
-            return dps >= 30f && dps <= 95f
-                && unarmoredTtk >= minimumTtk
+            float minimumTtk = weapon.Rarity >= ItemRarity.Epic ? 0.7f : 1.1f;
+            return dps >= 30f && dps <= 120f
+                && unarmoredTtk >= 0.65f
                 && ttk >= minimumTtk
                 && ttk <= 3f;
         }

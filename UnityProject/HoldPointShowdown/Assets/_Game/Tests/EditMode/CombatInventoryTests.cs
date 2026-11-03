@@ -25,18 +25,18 @@ namespace HoldPointShowdown.Tests
         }
 
         [Test]
-        public void ApplyDamage_ArmorAbsorbsQuarterAndHealthStillShowsThreeQuarters()
+        public void ApplyDamage_ArmorAbsorbsOneToOneBeforeHealth()
         {
             Damageable damageable = _gameObject.AddComponent<Damageable>();
-            damageable.Configure(100f, 50f, false, 50f);
+            damageable.Configure(100f, 40f, false, 40f);
             float reportedDamage = 0f;
             damageable.Damaged += (_, amount, _, _) => reportedDamage = amount;
 
             damageable.ApplyDamage(60f, Vector3.zero, null);
 
-            Assert.That(damageable.CurrentArmor, Is.EqualTo(35f));
-            Assert.That(damageable.CurrentHealth, Is.EqualTo(55f));
-            Assert.That(reportedDamage, Is.EqualTo(45f));
+            Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
+            Assert.That(damageable.CurrentHealth, Is.EqualTo(80f));
+            Assert.That(reportedDamage, Is.EqualTo(60f));
         }
 
         [Test]
@@ -49,8 +49,8 @@ namespace HoldPointShowdown.Tests
             float armorRestored = damageable.RestoreArmor(100f);
             float healthRestored = damageable.RestoreHealth(100f);
 
-            Assert.That(armorRestored, Is.EqualTo(17.5f));
-            Assert.That(healthRestored, Is.EqualTo(52.5f));
+            Assert.That(armorRestored, Is.EqualTo(40f));
+            Assert.That(healthRestored, Is.EqualTo(30f));
             Assert.That(damageable.CurrentArmor, Is.EqualTo(40f));
             Assert.That(damageable.CurrentHealth, Is.EqualTo(100f));
         }

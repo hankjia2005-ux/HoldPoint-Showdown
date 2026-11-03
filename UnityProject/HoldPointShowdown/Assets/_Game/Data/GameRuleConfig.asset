@@ -12,10 +12,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7398eb07c1d9b28409046cb7de92c64e, type: 3}
   m_Name: GameRuleConfig
   m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.GameRuleConfig
+  _activeTeamSize: 3
+  _presets:
+  - TeamSize: 2
+    ScavengeEndsAt: 90
+    RaidEndsAt: 210
+    MatchEndsAt: 480
+    LootPointCount: 19
+    LootBudget: 29
+  - TeamSize: 3
+    ScavengeEndsAt: 120
+    RaidEndsAt: 240
+    MatchEndsAt: 540
+    LootPointCount: 29
+    LootBudget: 43
+  - TeamSize: 4
+    ScavengeEndsAt: 150
+    RaidEndsAt: 270
+    MatchEndsAt: 630
+    LootPointCount: 38
+    LootBudget: 58
+  - TeamSize: 5
+    ScavengeEndsAt: 180
+    RaidEndsAt: 300
+    MatchEndsAt: 720
+    LootPointCount: 48
+    LootBudget: 72
   _scavengeEndsAt: 120
   _raidEndsAt: 270
   _matchEndsAt: 540
-  _scavengeRespawnDelay: 0.75
-  _raidRespawnDelay: 5
+  _useCustomOverride: 0
+  _scavengeRespawnDelay: 0.5
+  _raidRespawnDelay: 4
   _finalRespawnDelay: 5
+  _scavengeSpawnProtection: 1.5
+  _raidSpawnProtection: 2
+  _finalSpawnProtection: 2.5
+  _spawnProtectionRadius: 3
+  _spawnPointCount: 3
   _finalBattleLives: 2

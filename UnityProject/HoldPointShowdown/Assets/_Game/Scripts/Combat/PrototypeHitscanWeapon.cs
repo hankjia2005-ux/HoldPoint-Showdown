@@ -33,13 +33,18 @@ namespace HoldPointShowdown.Combat
         private float _reloadCompleteAt;
         private int _pendingReloadAmount;
         private int _burstShotsRemaining;
+        private float _currentSpreadBloom;
         private readonly RaycastHit[] _hitBuffer = new RaycastHit[32];
         private AudioFeedback _audioFeedback;
+        private CharacterController _ownerController;
+        private ThirdPersonPlayerController _playerController;
+        private ThirdPersonCameraRig _cameraRig;
 
         public WeaponConfig Config => _config;
         public int MagazineAmmo { get; private set; }
         public int ReserveAmmo { get; private set; }
         public bool IsReloading => _reloadCompleteAt > 0f;
+        public float CurrentSpreadDegrees => EvaluateCurrentSpread();
         public event Action<HitscanShot> Fired;
         public event Action<WeaponConfig> ConfigChanged;
         public event Action AmmoChanged;
@@ -55,9 +60,10 @@ namespace HoldPointShowdown.Combat
             _config = config;
             CancelReload();
             MagazineAmmo = config == null ? 0 : Mathf.Clamp(magazineAmmo, 0, config.MagazineSize);
-            ReserveAmmo = Mathf.Max(0, reserveAmmo);
+            ReserveAmmo = config == null ? 0 : Mathf.Clamp(reserveAmmo, 0, config.ReserveAmmoCap);
             _nextShotAt = Mathf.Min(_nextShotAt, Time.time + 0.12f);
             _burstShotsRemaining = 0;
+            _currentSpreadBloom = 0f;
             ConfigChanged?.Invoke(_config);
             AmmoChanged?.Invoke();
         }
@@ -81,15 +87,23 @@ namespace HoldPointShowdown.Combat
             _audioFeedback?.PlayGunshot(_config);
 
             Ray centerRay = sourceCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+            float spreadDegrees = EvaluateCurrentSpread();
             for (int pellet = 0; pellet < _config.Pellets; pellet++)
             {
-                Vector2 spread = UnityEngine.Random.insideUnitCircle * Mathf.Tan(_config.SpreadDegrees * Mathf.Deg2Rad);
+                Vector2 spread = UnityEngine.Random.insideUnitCircle * Mathf.Tan(spreadDegrees * Mathf.Deg2Rad);
                 Vector3 direction = (
                     centerRay.direction +
                     (sourceCamera.transform.right * spread.x) +
                     (sourceCamera.transform.up * spread.y)).normalized;
                 FireRay(new Ray(centerRay.origin, direction));
             }
+
+            _currentSpreadBloom = Mathf.Min(
+                Mathf.Max(0f, _config.MaxSpreadDegrees - _config.SpreadDegrees),
+                _currentSpreadBloom + _config.SpreadPerShot);
+            _cameraRig?.ApplyRecoil(
+                _config.RecoilVertical,
+                UnityEngine.Random.Range(-_config.RecoilHorizontal, _config.RecoilHorizontal));
 
             return true;
         }
@@ -150,9 +164,10 @@ namespace HoldPointShowdown.Combat
                 return 0;
             }
 
-            ReserveAmmo += amount;
+            int before = ReserveAmmo;
+            ReserveAmmo = Mathf.Min(_config != null ? _config.ReserveAmmoCap : int.MaxValue, ReserveAmmo + amount);
             AmmoChanged?.Invoke();
-            return amount;
+            return ReserveAmmo - before;
         }
 
         private void FireRay(Ray ray)
@@ -205,7 +220,12 @@ namespace HoldPointShowdown.Combat
                 bool friendly = sourceTeam != null && targetTeam != null && sourceTeam.Team == targetTeam.Team;
                 if (!friendly)
                 {
-                    damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
+                    float multiplier = _config.EvaluateFalloff(hit.distance);
+                    if (damageable is Damageable concreteDamageable)
+                    {
+                        multiplier *= concreteDamageable.EvaluateHitMultiplier(hit.collider, hit.point);
+                    }
+                    damageable?.ApplyDamage(_config.Damage * multiplier, hit.point, gameObject);
                 }
             }
 
@@ -230,6 +250,10 @@ namespace HoldPointShowdown.Combat
         private void Awake()
         {
             _audioFeedback = GetComponent<AudioFeedback>();
+            _ownerController = GetComponent<CharacterController>();
+            _playerController = GetComponent<ThirdPersonPlayerController>();
+            Camera sourceCamera = _aimCamera != null ? _aimCamera : Camera.main;
+            _cameraRig = sourceCamera != null ? sourceCamera.GetComponent<ThirdPersonCameraRig>() : null;
             ResetAmmo();
         }
 
@@ -244,6 +268,32 @@ namespace HoldPointShowdown.Combat
             {
                 TryContinueBurst();
             }
+
+            if (_config != null && _currentSpreadBloom > 0f)
+            {
+                _currentSpreadBloom = Mathf.MoveTowards(
+                    _currentSpreadBloom,
+                    0f,
+                    _config.SpreadRecovery * Time.deltaTime);
+            }
+        }
+
+        private float EvaluateCurrentSpread()
+        {
+            if (_config == null)
+            {
+                return 0f;
+            }
+
+            float movementRatio = _ownerController != null
+                ? Mathf.Clamp01(Vector3.ProjectOnPlane(_ownerController.velocity, Vector3.up).magnitude / 7f)
+                : 0f;
+            float spread = _config.SpreadDegrees + _currentSpreadBloom + (_config.MoveSpreadPenalty * movementRatio);
+            if (_playerController != null && _playerController.IsAiming)
+            {
+                spread *= _config.AdsSpreadMultiplier;
+            }
+            return Mathf.Clamp(spread, 0f, _config.MaxSpreadDegrees + _config.MoveSpreadPenalty);
         }
 
         private bool TryContinueBurst()

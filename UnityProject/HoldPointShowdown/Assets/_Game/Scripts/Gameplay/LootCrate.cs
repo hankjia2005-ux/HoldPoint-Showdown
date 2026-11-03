@@ -1,4 +1,5 @@
 using HoldPointShowdown.Data;
+using HoldPointShowdown.Core;
 using HoldPointShowdown.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -17,9 +18,10 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField] private Renderer[] _renderers;
 
         private bool _isOpen;
-        private float _refillAt;
         private Quaternion _closedRotation;
         private GUIStyle _promptStyle;
+        private LootDirector _director;
+        private MatchPhase _openedPhase = (MatchPhase)(-1);
 
         public bool IsOpen => _isOpen;
         public int SpawnedItemCount { get; private set; }
@@ -35,27 +37,58 @@ namespace HoldPointShowdown.Gameplay
 
         public bool TryOpen(PrototypeInventory inventory)
         {
-            if (_isOpen || inventory == null || !inventory.CanInteract)
+            MatchPhase phase = _director != null ? _director.CurrentPhase : MatchPhase.Scavenge;
+            if ((_isOpen && _openedPhase == phase) || inventory == null || !inventory.CanInteract)
             {
                 return false;
             }
 
             _isOpen = true;
-            _refillAt = Time.time + _refillSeconds;
+            _openedPhase = phase;
             SpawnedItemCount = 0;
+            if (_director != null)
+            {
+                var drops = _director.RequestDrops(3);
+                if (drops.Count == 0)
+                {
+                    _isOpen = false;
+                    return false;
+                }
+                for (int index = 0; index < drops.Count; index++)
+                {
+                    LootDrop drop = drops[index];
+                    if (drop.IsWeapon)
+                    {
+                        Vector3 position = GetDropPosition(index) + (Vector3.up * 0.45f);
+                        if (WorldItemPickup.CreateWeaponDrop(
+                                drop.Weapon,
+                                drop.Weapon.MagazineSize,
+                                drop.Weapon.AmmoPerPickup,
+                                position) != null)
+                        {
+                            SpawnedItemCount++;
+                        }
+                    }
+                    else
+                    {
+                        SpawnSupply(drop.Supply, 1, index);
+                    }
+                }
+                return true;
+            }
+
             SpawnSupply(SupplyKind.AmmoPack, 1 + Random.Range(0, 2), 0);
             SpawnSupply(Random.value < 0.5f ? SupplyKind.Medkit : SupplyKind.ArmorPlate, 1, 1);
-
             if (_weaponPool != null && _weaponPool.Length > 0 && Random.value <= _weaponChance)
             {
                 WeaponConfig config = _weaponPool[Random.Range(0, _weaponPool.Length)];
-                if (config != null)
+                if (config != null && WorldItemPickup.CreateWeaponDrop(
+                        config,
+                        config.MagazineSize,
+                        config.AmmoPerPickup,
+                        GetDropPosition(2) + (Vector3.up * 0.45f)) != null)
                 {
-                    Vector3 position = GetDropPosition(2) + (Vector3.up * 0.45f);
-                    if (WorldItemPickup.CreateWeaponDrop(config, config.MagazineSize, config.AmmoPerPickup, position) != null)
-                    {
-                        SpawnedItemCount++;
-                    }
+                    SpawnedItemCount++;
                 }
             }
 
@@ -71,12 +104,13 @@ namespace HoldPointShowdown.Gameplay
         private void Start()
         {
             _playerInventory ??= Object.FindAnyObjectByType<PrototypeInventory>();
+            _director = Object.FindAnyObjectByType<LootDirector>();
         }
 
         private void Update()
         {
             _playerInventory ??= Object.FindAnyObjectByType<PrototypeInventory>();
-            if (_isOpen && Time.time >= _refillAt)
+            if (_isOpen && _director != null && _director.CurrentPhase != _openedPhase)
             {
                 _isOpen = false;
                 SpawnedItemCount = 0;
@@ -117,7 +151,7 @@ namespace HoldPointShowdown.Gameplay
                 normal = { textColor = Color.white }
             };
             string prompt = _isOpen
-                ? $"补给箱已开启 · {Mathf.CeilToInt(Mathf.Max(0f, _refillAt - Time.time))}秒后补充"
+                ? "补给箱已搜空 · 下一阶段可能补充"
                 : "[E] 开启补给箱";
             GUI.Box(new Rect((Screen.width * 0.5f) - 130f, Screen.height - 132f, 260f, 38f), prompt, _promptStyle);
         }

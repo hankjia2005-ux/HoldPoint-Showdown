@@ -10,7 +10,7 @@ namespace HoldPointShowdown.UI
     public sealed class MobileControlsOverlay : MonoBehaviour
     {
         [SerializeField] private bool _showInEditor;
-        [SerializeField, Min(40f)] private float _joystickRadius = 92f;
+        [SerializeField, Min(40f)] private float _joystickRadius = 110f;
 
         private int _moveTouchId = -1;
         private int _lookTouchId = -1;
@@ -20,6 +20,7 @@ namespace HoldPointShowdown.UI
         private Vector2 _lookDelta;
         private bool _fireHeld;
         private bool _sprintHeld;
+        private bool _aimHeld;
         private Texture2D _padTexture;
         private Texture2D _buttonTexture;
         private GUIStyle _buttonLabel;
@@ -48,6 +49,7 @@ namespace HoldPointShowdown.UI
             _lookDelta = Vector2.zero;
             _fireHeld = false;
             _sprintHeld = false;
+            _aimHeld = false;
 
             foreach (TouchControl touch in Touchscreen.current.touches)
             {
@@ -62,7 +64,7 @@ namespace HoldPointShowdown.UI
                 Vector2 position = ToGuiPosition(touch.position.ReadValue());
                 bool began = touch.press.wasPressedThisFrame;
                 if (Contains(FireRect(), position)) { _fireHeld = true; continue; }
-                if (Contains(SprintRect(), position)) { _sprintHeld = true; continue; }
+                if (Contains(AimRect(), position)) { _aimHeld = true; continue; }
                 if (began && Contains(JumpRect(), position)) { MobileInputBridge.PressJump(); continue; }
                 if (began && Contains(CrouchRect(), position)) { MobileInputBridge.PressCrouch(); continue; }
                 if (began && Contains(ReloadRect(), position)) { MobileInputBridge.PressReload(); continue; }
@@ -76,6 +78,7 @@ namespace HoldPointShowdown.UI
                 {
                     Vector2 delta = position - _moveOrigin;
                     _move = Vector2.ClampMagnitude(new Vector2(delta.x, -delta.y) / _joystickRadius, 1f);
+                    _sprintHeld = _move.magnitude >= 0.82f;
                     continue;
                 }
                 if (id == _lookTouchId)
@@ -100,7 +103,7 @@ namespace HoldPointShowdown.UI
                 }
             }
 
-            MobileInputBridge.SetContinuous(_move, _lookDelta, _fireHeld, _sprintHeld);
+            MobileInputBridge.SetContinuous(_move, _lookDelta, _fireHeld, _sprintHeld, _aimHeld);
         }
 
         private void OnGUI()
@@ -109,7 +112,7 @@ namespace HoldPointShowdown.UI
             EnsureStyles();
             DrawPad(_moveTouchId >= 0 ? _moveOrigin : new Vector2(150f, Screen.height - 155f), _move);
             DrawButton(FireRect(), "开火");
-            DrawButton(SprintRect(), "疾跑");
+            DrawButton(AimRect(), "瞄准");
             DrawButton(JumpRect(), "跳");
             DrawButton(CrouchRect(), "蹲");
             DrawButton(ReloadRect(), "换弹");
@@ -150,16 +153,27 @@ namespace HoldPointShowdown.UI
 
         private static Vector2 ToGuiPosition(Vector2 screenPosition) => new(screenPosition.x, Screen.height - screenPosition.y);
         private static bool Contains(Rect rect, Vector2 point) => rect.Contains(point);
-        private static Rect FireRect() => new(Screen.width - 150f, Screen.height - 185f, 116f, 116f);
-        private static Rect JumpRect() => new(Screen.width - 280f, Screen.height - 255f, 88f, 88f);
-        private static Rect CrouchRect() => new(Screen.width - 380f, Screen.height - 155f, 82f, 82f);
-        private static Rect ReloadRect() => new(Screen.width - 250f, Screen.height - 355f, 78f, 64f);
-        private static Rect InteractRect() => new(Screen.width - 370f, Screen.height - 270f, 86f, 68f);
-        private static Rect SprintRect() => new(255f, Screen.height - 285f, 92f, 68f);
-        private static Rect SwitchRect() => new(Screen.width - 475f, Screen.height - 360f, 82f, 62f);
-        private static Rect MedkitRect() => new(Screen.width - 570f, Screen.height - 270f, 82f, 62f);
-        private static Rect ArmorRect() => new(Screen.width - 570f, Screen.height - 345f, 82f, 62f);
-        private static Rect PauseRect() => new(Screen.width - 104f, 22f, 82f, 52f);
+        private static Rect FireRect() => BottomRight(24f, 32f, 96f, 96f);
+        private static Rect AimRect() => BottomRight(132f, 44f, 72f, 72f);
+        private static Rect JumpRect() => BottomRight(88f, 146f, 64f, 64f);
+        private static Rect CrouchRect() => BottomRight(232f, 36f, 64f, 64f);
+        private static Rect ReloadRect() => BottomRight(166f, 132f, 56f, 56f);
+        private static Rect InteractRect() => BottomRight(236f, 116f, 64f, 64f);
+        private static Rect SwitchRect() => BottomRight(306f, 112f, 56f, 56f);
+        private static Rect MedkitRect() => BottomRight(306f, 44f, 56f, 56f);
+        private static Rect ArmorRect() => BottomRight(370f, 44f, 56f, 56f);
+        private static Rect PauseRect()
+        {
+            Rect safe = Screen.safeArea;
+            float top = Screen.height - safe.yMax;
+            return new Rect(safe.xMax - 80f, top + 24f, 56f, 48f);
+        }
+
+        private static Rect BottomRight(float right, float bottom, float width, float height)
+        {
+            Rect safe = Screen.safeArea;
+            return new Rect(safe.xMax - right - width, Screen.height - safe.y - bottom - height, width, height);
+        }
 
         private static Texture2D MakeTexture(Color color)
         {

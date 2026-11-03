@@ -26,6 +26,7 @@ namespace HoldPointShowdown.Player
         [SerializeField] private List<WeaponSlot> _slots = new();
         [SerializeField] private int _activeIndex = -1;
         [SerializeField] private WeaponConfig _starterWeapon;
+        [SerializeField] private GameBalanceConfig _balance;
         private Damageable _damageable;
         private CombatantLifecycle _lifecycle;
 
@@ -34,6 +35,16 @@ namespace HoldPointShowdown.Player
         public int ActiveIndex => _activeIndex;
         public WeaponConfig ActiveWeapon => _activeIndex >= 0 && _activeIndex < _slots.Count ? _slots[_activeIndex].Config : null;
         public event Action<WeaponConfig> ActiveWeaponChanged;
+
+        public int CalculateSlotCost(GameBalanceConfig balance)
+        {
+            int total = 0;
+            foreach (WeaponSlot slot in _slots)
+            {
+                total += balance != null ? balance.GetWeaponSlotCost(slot.Config) : 3;
+            }
+            return total;
+        }
 
         public bool TryRemoveActiveForStorage(
             out WeaponConfig config,
@@ -67,8 +78,18 @@ namespace HoldPointShowdown.Player
 
         public void Configure(PrototypeHitscanWeapon weapon, int maxWeapons, params WeaponConfig[] startingWeapons)
         {
+            Configure(weapon, maxWeapons, null, startingWeapons);
+        }
+
+        public void Configure(
+            PrototypeHitscanWeapon weapon,
+            int maxWeapons,
+            GameBalanceConfig balance,
+            params WeaponConfig[] startingWeapons)
+        {
             _weapon = weapon;
             _maxWeapons = Mathf.Max(1, maxWeapons);
+            _balance = balance;
             _slots.Clear();
             _activeIndex = -1;
             _starterWeapon = startingWeapons != null && startingWeapons.Length > 0 ? startingWeapons[0] : null;
@@ -112,7 +133,9 @@ namespace HoldPointShowdown.Player
                 int ammoToAdd = magazineAmmo >= 0 || reserveAmmo >= 0
                     ? Mathf.Max(0, magazineAmmo) + Mathf.Max(0, reserveAmmo)
                     : config.AmmoPerPickup;
-                _slots[existing].Reserve += ammoToAdd;
+                _slots[existing].Reserve = Mathf.Min(
+                    config.ReserveAmmoCap,
+                    _slots[existing].Reserve + ammoToAdd);
                 if (existing == _activeIndex && _weapon != null)
                 {
                     _weapon.AddReserveAmmo(ammoToAdd);
@@ -235,7 +258,10 @@ namespace HoldPointShowdown.Player
             {
                 Config = config,
                 Magazine = magazineAmmo >= 0 ? Mathf.Clamp(magazineAmmo, 0, config.MagazineSize) : config.MagazineSize,
-                Reserve = reserveAmmo >= 0 ? reserveAmmo : config.StartingReserveAmmo
+                Reserve = Mathf.Clamp(
+                    reserveAmmo >= 0 ? reserveAmmo : config.StartingReserveAmmo,
+                    0,
+                    config.ReserveAmmoCap)
             });
         }
 
@@ -274,7 +300,15 @@ namespace HoldPointShowdown.Player
             Vector3 position,
             float pickupDelay)
         {
-            WorldItemPickup.CreateWeaponDrop(config, magazineAmmo, reserveAmmo, position, pickupDelay, 60f);
+            float protection = _balance != null ? _balance.DropProtectionSeconds : pickupDelay;
+            float lifetime = _balance != null ? _balance.DroppedItemLifetime : 90f;
+            WorldItemPickup.CreateWeaponDrop(
+                config,
+                magazineAmmo,
+                reserveAmmo,
+                position,
+                Mathf.Max(pickupDelay, protection),
+                lifetime);
         }
 
         private void Update()

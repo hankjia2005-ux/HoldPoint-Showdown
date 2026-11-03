@@ -136,6 +136,14 @@ namespace HoldPointShowdown.UI
             {
                 state = $"已返回基地 · {player.RespawnSecondsRemaining:0.0} 秒后复活";
             }
+            else if (player != null && player.IsSpawnProtected)
+            {
+                state = "状态：复活保护 · 离开出生点或开火后失效";
+            }
+            else if (_inventory != null && _inventory.IsUsingConsumable)
+            {
+                state = "状态：正在使用补给 · 受到伤害可能中断";
+            }
             else if (_match != null && _match.CurrentPhase == MatchPhase.FinalBattle && player != null)
             {
                 state = $"终局命数：{player.FinalLivesRemaining}/{_match.Rules.FinalBattleLives}";
@@ -249,7 +257,7 @@ namespace HoldPointShowdown.UI
 
         private void DrawCrosshair(float width, float height)
         {
-            float spread = _weapon != null && _weapon.Config != null ? _weapon.Config.SpreadDegrees : 0f;
+            float spread = _weapon != null && _weapon.Config != null ? _weapon.CurrentSpreadDegrees : 0f;
             float gap = 8f + (spread * 12f);
             const float length = 12f;
             const float thickness = 2.5f;

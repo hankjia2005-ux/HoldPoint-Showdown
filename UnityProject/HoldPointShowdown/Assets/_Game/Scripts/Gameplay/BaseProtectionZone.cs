@@ -15,12 +15,11 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField] private MatchPhaseController _match;
         [SerializeField] private Renderer _shieldRenderer;
         [SerializeField] private Vector3 _enemyEjectPoint;
-        [SerializeField] private Vector3 _spawnProtectionCenter;
-        [SerializeField, Min(1f)] private float _spawnProtectionRadius = 3f;
 
         private BoxCollider _trigger;
         private readonly HashSet<Damageable> _protected = new();
         private readonly List<Damageable> _outsideZone = new();
+        private float _nextInvasionAlertAt;
 
         public bool IsProtectionActive => _match != null
             && _match.IsRunning
@@ -40,7 +39,6 @@ namespace HoldPointShowdown.Gameplay
             _match = match;
             _shieldRenderer = shieldRenderer;
             _enemyEjectPoint = enemyEjectPoint;
-            _spawnProtectionCenter = spawnProtectionCenter;
             EnsureTrigger();
             ApplyPhaseState();
         }
@@ -77,7 +75,6 @@ namespace HoldPointShowdown.Gameplay
 
         private void FixedUpdate()
         {
-            ApplySpawnProtection();
             if (_protected.Count == 0)
             {
                 return;
@@ -126,6 +123,11 @@ namespace HoldPointShowdown.Gameplay
 
             if (!IsProtectionActive)
             {
+                if (Time.time >= _nextInvasionAlertAt)
+                {
+                    _nextInvasionAlertAt = Time.time + 3f;
+                    _match.RaiseMessage($"{(_team == TeamId.Blue ? "蓝方" : "红方")}基地遭到入侵", 3f);
+                }
                 return;
             }
 
@@ -171,7 +173,7 @@ namespace HoldPointShowdown.Gameplay
             }
             if (_trigger != null)
             {
-            _trigger.enabled = active;
+                _trigger.enabled = _match == null || _match.IsRunning;
             }
             if (!active)
             {
@@ -197,33 +199,7 @@ namespace HoldPointShowdown.Gameplay
         private bool ShouldProtect(Vector3 position)
         {
             bool insideBaseShield = _trigger != null && _trigger.bounds.Contains(position);
-            return (IsProtectionActive && insideBaseShield)
-                || (IsSpawnProtectionActive
-                    && (position - _spawnProtectionCenter).sqrMagnitude <= _spawnProtectionRadius * _spawnProtectionRadius);
-        }
-
-        private void ApplySpawnProtection()
-        {
-            if (!IsSpawnProtectionActive || _match == null)
-            {
-                return;
-            }
-
-            float radiusSquared = _spawnProtectionRadius * _spawnProtectionRadius;
-            foreach (CombatantLifecycle combatant in _match.Combatants)
-            {
-                if (combatant == null || combatant.Team != _team || combatant.Damageable == null)
-                {
-                    continue;
-                }
-
-                Damageable damageable = combatant.Damageable;
-                if ((combatant.transform.position - _spawnProtectionCenter).sqrMagnitude <= radiusSquared)
-                {
-                    damageable.SetInvulnerable(true);
-                    _protected.Add(damageable);
-                }
-            }
+            return IsProtectionActive && insideBaseShield;
         }
     }
 }

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40fc329382018b746a9ab3943219d335, type: 3}
+  m_Name: AIProfile_Easy
+  m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.AIProfile
+  _reactionSeconds: 0.9
+  _aimErrorDegrees: 9
+  _hitChanceAt10m: 0.35
+  _detectRadius: 35
+  _chaseRadius: 15
+  _burstInterval: 0.45
+  _reloadSeconds: 3
+  _damageMultiplier: 0.7
+  _canStoreInChest: 0
+  _raidBaseChance: 0

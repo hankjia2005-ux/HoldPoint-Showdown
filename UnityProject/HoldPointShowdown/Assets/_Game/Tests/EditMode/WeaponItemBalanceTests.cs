@@ -26,11 +26,11 @@ namespace HoldPointShowdown.Tests
         [Test]
         public void FiveWeaponTiers_StayInsidePlayableDemoEnvelope()
         {
-            WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 22f, 3.2f, 1, 0.8f, 12, WeaponFireMode.SemiAutomatic);
-            WeaponConfig smg = CreateWeapon("冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon, 11f, 7f, 1, 2.15f, 24, WeaponFireMode.Automatic);
-            WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 19f, 4f, 1, 0.65f, 21, WeaponFireMode.Burst);
-            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 6f, 1.5f, 6, 6.4f, 7, WeaponFireMode.Automatic);
-            WeaponConfig golden = CreateWeapon("金色步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary, 19f, 4.2f, 1, 0.5f, 21, WeaponFireMode.Automatic);
+            WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 24f, 3f, 1, 0.8f, 12, WeaponFireMode.SemiAutomatic);
+            WeaponConfig smg = CreateWeapon("冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon, 12f, 8f, 1, 1.6f, 30, WeaponFireMode.Automatic);
+            WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 22f, 4.2f, 1, 0.5f, 20, WeaponFireMode.SemiAutomatic);
+            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 11f, 1.3f, 8, 4f, 6, WeaponFireMode.SemiAutomatic);
+            WeaponConfig golden = CreateWeapon("金色步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary, 24f, 4.8f, 1, 0.45f, 20, WeaponFireMode.Automatic);
 
             foreach (WeaponConfig weapon in new[] { pistol, smg, rifle, shotgun, golden })
             {
@@ -41,8 +41,9 @@ namespace HoldPointShowdown.Tests
 
             Assert.That(pistol.FireMode, Is.EqualTo(WeaponFireMode.SemiAutomatic));
             Assert.That(smg.FireMode, Is.EqualTo(WeaponFireMode.Automatic));
-            Assert.That(rifle.FireMode, Is.EqualTo(WeaponFireMode.Burst));
-            Assert.That(golden.IdealArmoredTtk, Is.LessThan(shotgun.IdealArmoredTtk));
+            Assert.That(rifle.FireMode, Is.EqualTo(WeaponFireMode.SemiAutomatic));
+            Assert.That(shotgun.IdealArmoredTtk, Is.LessThan(pistol.IdealArmoredTtk));
+            Assert.That(golden.IdealArmoredTtk, Is.LessThan(rifle.IdealArmoredTtk));
         }
 
         [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab")]
@@ -102,9 +103,9 @@ namespace HoldPointShowdown.Tests
             loadout.Configure(weapon, balance.MaxCarriedWeapons, pistol);
             inventory.Configure(weapon, damageable, loadout, balance);
 
-            Assert.That(inventory.UsedSlots, Is.EqualTo(3));
+            Assert.That(inventory.UsedSlots, Is.EqualTo(2));
             Assert.That(inventory.TryAddWeapon(rifle), Is.True);
-            Assert.That(inventory.UsedSlots, Is.EqualTo(6));
+            Assert.That(inventory.UsedSlots, Is.EqualTo(5));
             Assert.That(inventory.TryAddWeapon(shotgun), Is.False);
             Assert.That(loadout.WeaponCount, Is.EqualTo(2));
         }
@@ -202,7 +203,8 @@ namespace HoldPointShowdown.Tests
             config.SetBalancedValues(
                 $"test.{name}", name, archetype, rarity, AmmoKind.Light,
                 damage, shotsPerSecond, pellets, spread, magazine, magazine * 3,
-                2f, 30, 80f, null, Color.white, fireMode);
+                2f, magazine * 2, 80f, null, Color.white, fireMode,
+                reserveAmmoCap: magazine * 5);
             return config;
         }
 

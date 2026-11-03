@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e6899136f1292e4994fda7dc0f1f1f0, type: 3}
+  m_Name: MovementProfile
+  m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.MovementProfile
+  _walkSpeed: 4.5
+  _sprintSpeed: 7
+  _crouchSpeed: 2.2
+  _acceleration: 22
+  _deceleration: 28
+  _airControl: 0.35
+  _jumpHeight: 1.1
+  _jumpCooldown: 0.45
+  _adsMoveMultiplier: 0.55
+  _followDistance: 3.2
+  _cameraHeight: 1.6
+  _verticalFov: 60
+  _yawSpeed: 180
+  _pitchSpeed: 120
+  _adsSensitivity: 0.6
+  _aimAssistRange: 45
+  _slowdownAngle: 12
+  _slowdownFactor: 0.45
+  _snapAngle: 6
+  _snapRate: 0.24

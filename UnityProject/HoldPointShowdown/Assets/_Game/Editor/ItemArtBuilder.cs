@@ -18,6 +18,11 @@ namespace HoldPointShowdown.Editor
         public const string BalanceAssetPath = "Assets/_Game/Data/GameBalanceConfig.asset";
         public const string CombatantSetAssetPath = "Assets/_Game/Data/Runtime/CombatantRuntimeSet.asset";
         public const string CameraChannelAssetPath = "Assets/_Game/Data/Runtime/CameraDirectiveChannel.asset";
+        public const string MovementAssetPath = "Assets/_Game/Data/MovementProfile.asset";
+        public const string LootBudgetAssetPath = "Assets/_Game/Data/LootBudgetConfig.asset";
+        public const string AiEasyAssetPath = "Assets/_Game/Data/AIProfile_Easy.asset";
+        public const string AiNormalAssetPath = "Assets/_Game/Data/AIProfile_Normal.asset";
+        public const string AiHardAssetPath = "Assets/_Game/Data/AIProfile_Hard.asset";
 
         public const string PistolPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab";
         public const string SmgPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab";
@@ -68,35 +73,54 @@ namespace HoldPointShowdown.Editor
 
             WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(PistolAssetPath);
             pistol.SetBalancedValues("weapon.pistol.common", "白色基础手枪", WeaponArchetype.Pistol, ItemRarity.Common,
-                AmmoKind.Light, 22f, 3.2f, 1, 0.8f, 12, 18, 1.4f, 8, 180f, pistolModel,
-                new Color(0.88f, 0.92f, 0.96f), WeaponFireMode.SemiAutomatic);
+                AmmoKind.Light, 24f, 3f, 1, 0.8f, 12, 24, 1.6f, 24, 84f, pistolModel,
+                new Color(0.88f, 0.92f, 0.96f), WeaponFireMode.SemiAutomatic, 3,
+                48, 15f, 45f, 70f, 0.35f, 2.4f, 12f, 0.9f, 0.3f, 1.5f, 1f);
 
             WeaponConfig smg = GetOrCreateAsset<WeaponConfig>(SmgAssetPath);
             smg.SetBalancedValues("weapon.smg.uncommon", "绿色疾风冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon,
-                AmmoKind.Light, 11f, 7f, 1, 2.15f, 24, 36, 2f, 12, 150f, smgModel,
-                new Color(0.22f, 0.86f, 0.42f), WeaponFireMode.Automatic);
+                AmmoKind.Light, 12f, 8f, 1, 1.6f, 30, 60, 2.1f, 60, 96f, smgModel,
+                new Color(0.22f, 0.86f, 0.42f), WeaponFireMode.Automatic, 3,
+                90, 20f, 55f, 80f, 0.45f, 4.8f, 10f, 0.6f, 0.55f, 0.8f, 1f);
 
             WeaponConfig rifle = GetOrCreateAsset<WeaponConfig>(RifleAssetPath);
             rifle.SetBalancedValues("weapon.rifle.rare", "蓝色先锋步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare,
-                AmmoKind.Rifle, 19f, 4f, 1, 0.65f, 21, 32, 2.2f, 11, 220f, rifleModel,
-                new Color(0.18f, 0.55f, 1f), WeaponFireMode.Burst, 3);
+                AmmoKind.Rifle, 22f, 4.2f, 1, 0.5f, 20, 40, 2.3f, 40, 180f, rifleModel,
+                new Color(0.18f, 0.55f, 1f), WeaponFireMode.SemiAutomatic, 3,
+                60, 45f, 110f, 150f, 0.55f, 3.2f, 14f, 1.4f, 0.35f, 2f, 0.6f);
 
             WeaponConfig shotgun = GetOrCreateAsset<WeaponConfig>(ShotgunAssetPath);
             shotgun.SetBalancedValues("weapon.shotgun.epic", "紫色风暴连发霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic,
-                AmmoKind.Shell, 6f, 1.5f, 6, 6.4f, 7, 11, 2.6f, 4, 55f, shotgunModel,
-                new Color(0.66f, 0.28f, 1f), WeaponFireMode.Automatic);
+                AmmoKind.Shell, 11f, 1.3f, 8, 4f, 6, 12, 2.6f, 12, 34f, shotgunModel,
+                new Color(0.66f, 0.28f, 1f), WeaponFireMode.SemiAutomatic, 3,
+                24, 8f, 18f, 28f, 1.2f, 8f, 8f, 2.2f, 1f, 2.5f, 1.2f);
 
             WeaponConfig goldenRifle = GetOrCreateAsset<WeaponConfig>(GoldenRifleAssetPath);
             goldenRifle.SetBalancedValues("weapon.rifle.legendary", "金色破晓步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary,
-                AmmoKind.Rifle, 19f, 4.2f, 1, 0.5f, 21, 32, 2.1f, 11, 240f, goldenRifleModel,
-                new Color(1f, 0.7f, 0.08f), WeaponFireMode.Automatic);
+                AmmoKind.Rifle, 24f, 4.8f, 1, 0.45f, 20, 40, 2.2f, 40, 180f, goldenRifleModel,
+                new Color(1f, 0.7f, 0.08f), WeaponFireMode.Automatic, 3,
+                60, 45f, 110f, 150f, 0.5f, 3f, 14f, 1.2f, 0.3f, 1.8f, 0.55f);
 
             GameBalanceConfig balance = GetOrCreateAsset<GameBalanceConfig>(BalanceAssetPath);
             balance.SetDemoValues();
             CombatantRuntimeSet combatants = GetOrCreateAsset<CombatantRuntimeSet>(CombatantSetAssetPath);
             CameraDirectiveChannel cameraChannel = GetOrCreateAsset<CameraDirectiveChannel>(CameraChannelAssetPath);
+            MovementProfile movement = GetOrCreateAsset<MovementProfile>(MovementAssetPath);
+            movement.SetRecommendedValues();
+            LootBudgetConfig lootBudget = GetOrCreateAsset<LootBudgetConfig>(LootBudgetAssetPath);
+            lootBudget.SetRecommendedValues();
+            AIProfile easyAi = GetOrCreateAsset<AIProfile>(AiEasyAssetPath);
+            easyAi.SetValues(0.9f, 9f, 0.35f, 35f, 15f, 0.45f, 3f, 0.7f, false, 0f);
+            AIProfile normalAi = GetOrCreateAsset<AIProfile>(AiNormalAssetPath);
+            normalAi.SetValues(0.55f, 4.5f, 0.55f, 55f, 30f, 0.3f, 2.4f, 1f, true, 0.2f);
+            AIProfile hardAi = GetOrCreateAsset<AIProfile>(AiHardAssetPath);
+            hardAi.SetValues(0.3f, 2f, 0.75f, 75f, 45f, 0.2f, 1.8f, 1.15f, true, 0.4f);
 
-            foreach (Object asset in new Object[] { pistol, smg, rifle, shotgun, goldenRifle, balance, combatants, cameraChannel })
+            foreach (Object asset in new Object[]
+                     {
+                         pistol, smg, rifle, shotgun, goldenRifle, balance, combatants, cameraChannel,
+                         movement, lootBudget, easyAi, normalAi, hardAi
+                     })
             {
                 EditorUtility.SetDirty(asset);
             }

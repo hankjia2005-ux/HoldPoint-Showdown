@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 using HoldPointShowdown.Presentation;
 using HoldPointShowdown.UI;
 using HoldPointShowdown.Runtime;
+using HoldPointShowdown.Data;
+using HoldPointShowdown.Combat;
 
 namespace HoldPointShowdown.Player
 {
@@ -20,6 +22,9 @@ namespace HoldPointShowdown.Player
         [SerializeField, Min(0.1f)] private float _minimumObstacleDistance = 0.9f;
         [SerializeField] private LayerMask _collisionMask = Physics.DefaultRaycastLayers;
         [SerializeField] private CameraDirectiveChannel _directiveChannel;
+        [SerializeField] private MovementProfile _movementProfile;
+        [SerializeField] private CombatantRuntimeSet _combatants;
+        [SerializeField] private TeamMember _ownerTeam;
 
         [Header("Perspective")]
         [SerializeField] private Vector3 _firstPersonOffset = new(0f, 2.28f, 0.12f);
@@ -45,24 +50,52 @@ namespace HoldPointShowdown.Player
         private Transform _deathFocusTarget;
         private float _deathFocusUntil;
         private Transform _spectateTarget;
+        private bool _isAiming;
+        private Camera _camera;
+        private float _baseFov = 60f;
 
         public float CurrentDistance => _currentDistance;
         public float TargetDistance => _targetDistance;
         public Vector2 LookAngles => new(_yaw, _pitch);
         public bool IsFirstPerson => _isFirstPerson;
 
-        public void Configure(Transform target, CameraDirectiveChannel directiveChannel = null)
+        public void Configure(
+            Transform target,
+            CameraDirectiveChannel directiveChannel = null,
+            MovementProfile movementProfile = null,
+            CombatantRuntimeSet combatants = null,
+            TeamMember ownerTeam = null)
         {
             SetDirectiveChannel(directiveChannel);
             _target = target;
-            _targetOffset = new Vector3(0f, 1.6f, 0f);
-            _distance = 9f;
-            _shoulderOffset = 1f;
-            _zoomLimits = new Vector2(5.5f, 12f);
+            _movementProfile = movementProfile;
+            _combatants = combatants;
+            _ownerTeam = ownerTeam;
+            _targetOffset = new Vector3(0f, movementProfile != null ? movementProfile.CameraHeight : 1.6f, 0f);
+            _distance = movementProfile != null ? movementProfile.FollowDistance : 3.2f;
+            _shoulderOffset = 0.75f;
+            _zoomLimits = new Vector2(2.4f, 7f);
+            _baseFov = movementProfile != null ? movementProfile.VerticalFov : 60f;
+            _camera = GetComponent<Camera>();
+            if (_camera != null)
+            {
+                _camera.fieldOfView = _baseFov;
+            }
             _pitch = 10f;
             CacheLocalBodyRenderers();
             SetFirstPerson(_startInFirstPerson);
             ResetDistance();
+        }
+
+        public void SetAiming(bool aiming)
+        {
+            _isAiming = aiming;
+        }
+
+        public void ApplyRecoil(float verticalDegrees, float horizontalDegrees)
+        {
+            _pitch = Mathf.Clamp(_pitch - Mathf.Max(0f, verticalDegrees), _pitchLimits.x, _pitchLimits.y);
+            _yaw += horizontalDegrees;
         }
 
         public void TogglePerspective()
@@ -124,12 +157,41 @@ namespace HoldPointShowdown.Player
 
         public void ApplyLookDelta(Vector2 lookDelta, bool mouseInput)
         {
-            float sensitivity = mouseInput
+            float yawSensitivity = mouseInput
                 ? _mouseSensitivity
-                : _gamepadSensitivity * Time.deltaTime;
-            _yaw += lookDelta.x * sensitivity;
+                : (_movementProfile != null ? _movementProfile.YawSpeed : _gamepadSensitivity) * Time.deltaTime;
+            float pitchSensitivity = mouseInput
+                ? _mouseSensitivity
+                : (_movementProfile != null ? _movementProfile.PitchSpeed : _gamepadSensitivity) * Time.deltaTime;
+            if (_isAiming)
+            {
+                float ads = _movementProfile != null ? _movementProfile.AdsSensitivity : 0.6f;
+                yawSensitivity *= ads;
+                pitchSensitivity *= ads;
+            }
+
+            if (!mouseInput && TryGetAimAssistAngles(out float assistYaw, out float assistPitch, out float assistAngle))
+            {
+                float slowdownAngle = _movementProfile != null ? _movementProfile.SlowdownAngle : 12f;
+                if (assistAngle <= slowdownAngle)
+                {
+                    float scale = 1f - (_movementProfile != null ? _movementProfile.SlowdownFactor : 0.45f);
+                    yawSensitivity *= scale;
+                    pitchSensitivity *= scale;
+                }
+
+                float snapAngle = _movementProfile != null ? _movementProfile.SnapAngle : 6f;
+                if (!_isAiming && assistAngle <= snapAngle)
+                {
+                    float snap = (_movementProfile != null ? _movementProfile.SnapRate : 0.24f) * Time.deltaTime;
+                    _yaw = Mathf.LerpAngle(_yaw, assistYaw, snap);
+                    _pitch = Mathf.Lerp(_pitch, assistPitch, snap);
+                }
+            }
+
+            _yaw += lookDelta.x * yawSensitivity;
             _pitch = Mathf.Clamp(
-                _pitch - (lookDelta.y * sensitivity),
+                _pitch - (lookDelta.y * pitchSensitivity),
                 _pitchLimits.x,
                 _pitchLimits.y);
         }
@@ -208,6 +270,13 @@ namespace HoldPointShowdown.Player
             ReadPerspectiveInput();
             ReadZoomInput();
 
+            _camera ??= GetComponent<Camera>();
+            if (_camera != null)
+            {
+                float targetFov = _isAiming ? _baseFov * 0.78f : _baseFov;
+                _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, targetFov, 1f - Mathf.Exp(-10f * Time.unscaledDeltaTime));
+            }
+
             Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
             if (_isFirstPerson)
             {
@@ -261,7 +330,7 @@ namespace HoldPointShowdown.Player
                 Vector2 mobileLook = MobileInputBridge.ConsumeLookDelta();
                 if (mobileLook.sqrMagnitude > 0f)
                 {
-                    ApplyLookDelta(mobileLook, true);
+                    ApplyLookDelta(mobileLook, false);
                 }
             }
 
@@ -346,6 +415,57 @@ namespace HoldPointShowdown.Player
                     CacheLocalBodyRenderers();
                     break;
             }
+        }
+
+        private bool TryGetAimAssistAngles(out float targetYaw, out float targetPitch, out float angle)
+        {
+            targetYaw = _yaw;
+            targetPitch = _pitch;
+            angle = float.MaxValue;
+            if (_combatants == null || _ownerTeam == null)
+            {
+                return false;
+            }
+
+            float range = _movementProfile != null ? _movementProfile.AimAssistRange : 45f;
+            Vector3 origin = transform.position;
+            Quaternion currentRotation = Quaternion.Euler(_pitch, _yaw, 0f);
+            Vector3 forward = currentRotation * Vector3.forward;
+            TeamMember best = null;
+            Vector3 bestDirection = Vector3.zero;
+            foreach (TeamMember candidate in _combatants.Items)
+            {
+                if (candidate == null || candidate == _ownerTeam || candidate.Team == _ownerTeam.Team)
+                {
+                    continue;
+                }
+                Damageable damageable = candidate.GetComponent<Damageable>();
+                if (damageable == null || !damageable.IsAlive)
+                {
+                    continue;
+                }
+                Vector3 direction = candidate.transform.position + (Vector3.up * 1.35f) - origin;
+                float distance = direction.magnitude;
+                if (distance > range)
+                {
+                    continue;
+                }
+                float candidateAngle = Vector3.Angle(forward, direction);
+                if (candidateAngle < angle)
+                {
+                    angle = candidateAngle;
+                    best = candidate;
+                    bestDirection = direction.normalized;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+            targetYaw = Mathf.Atan2(bestDirection.x, bestDirection.z) * Mathf.Rad2Deg;
+            targetPitch = -Mathf.Asin(Mathf.Clamp(bestDirection.y, -1f, 1f)) * Mathf.Rad2Deg;
+            return true;
         }
     }
 }

@@ -14,7 +14,10 @@ namespace HoldPointShowdown.AI
     {
         Advance,
         Pursue,
-        Engage
+        Engage,
+        SearchLoot,
+        StoreSupplies,
+        RaidBase
     }
 
     [RequireComponent(typeof(CharacterController), typeof(Damageable), typeof(TeamMember))]
@@ -37,6 +40,10 @@ namespace HoldPointShowdown.AI
         [SerializeField, Range(0f, 12f)] private float _minimumSpread = 1.4f;
         [SerializeField, Range(0f, 18f)] private float _maximumSpread = 6.5f;
         [SerializeField, Range(0.1f, 1f)] private float _damageScale = 0.75f;
+        [SerializeField] private AIProfile _profile;
+        [SerializeField] private LootDirector _lootDirector;
+        [SerializeField] private SharedSupplyChest _friendlyChest;
+        [SerializeField] private SharedSupplyChest _enemyChest;
 
         private Damageable _self;
         private TeamMember _teamMember;
@@ -54,6 +61,11 @@ namespace HoldPointShowdown.AI
         private float _avoidanceSign;
         private AudioFeedback _audioFeedback;
         private readonly RaycastHit[] _shotHits = new RaycastHit[24];
+        private PrototypeInventory _inventory;
+        private WorldItemPickup _lootTarget;
+        private float _targetAcquiredAt;
+        private bool _raidDecisionMade;
+        private bool _raidCommitted;
 
         public EnemyAIIntent CurrentIntent { get; private set; } = EnemyAIIntent.Advance;
         public bool HasTarget => IsTargetValid();
@@ -80,13 +92,21 @@ namespace HoldPointShowdown.AI
             GameBalanceConfig balance,
             WeaponConfig weaponConfig,
             MatchPhaseController match,
-            StrategicHoldPoint holdPoint = null)
+            StrategicHoldPoint holdPoint = null,
+            AIProfile profile = null,
+            LootDirector lootDirector = null,
+            SharedSupplyChest friendlyChest = null,
+            SharedSupplyChest enemyChest = null)
         {
             Configure(muzzle);
             _combatants = combatants;
             _weaponConfig = weaponConfig;
             _match = match;
             _holdPoint = holdPoint;
+            _profile = profile;
+            _lootDirector = lootDirector;
+            _friendlyChest = friendlyChest;
+            _enemyChest = enemyChest;
             if (balance != null)
             {
                 _detectionRange = balance.AiDetectionRange;
@@ -104,6 +124,15 @@ namespace HoldPointShowdown.AI
                     ? weaponConfig.BurstCount
                     : Mathf.Clamp(Mathf.RoundToInt(weaponConfig.ShotsPerSecond * 0.4f), 2, 4);
             }
+            if (profile != null)
+            {
+                _detectionRange = profile.DetectRadius;
+                _attackRange = Mathf.Min(_attackRange, weaponConfig != null ? weaponConfig.Range : _attackRange);
+                _minimumSpread = profile.AimErrorDegrees * 0.55f;
+                _maximumSpread = profile.AimErrorDegrees;
+                _damageScale = profile.DamageMultiplier;
+                _burstCooldown = profile.BurstInterval;
+            }
         }
 
         private void Awake()
@@ -114,6 +143,7 @@ namespace HoldPointShowdown.AI
             _lifecycle = GetComponent<CombatantLifecycle>();
             _effects = GetComponent<PrototypeWeaponEffects>();
             _audioFeedback = GetComponent<AudioFeedback>();
+            _inventory = GetComponent<PrototypeInventory>();
             _spawnPosition = transform.position;
             _patrolTarget = _spawnPosition + (transform.right * 3f);
             _avoidanceSign = transform.position.x >= 0f ? 1f : -1f;
@@ -148,7 +178,7 @@ namespace HoldPointShowdown.AI
 
             if (_target == null || _targetDamageable == null)
             {
-                AdvanceTowardBattle();
+                PerformNonCombatIntent();
                 return;
             }
 
@@ -161,7 +191,10 @@ namespace HoldPointShowdown.AI
             {
                 CurrentIntent = EnemyAIIntent.Engage;
                 FaceDirection(planarToTarget);
-                TryShoot();
+                if (Time.time - _targetAcquiredAt >= (_profile != null ? _profile.ReactionSeconds : 0.55f))
+                {
+                    TryShoot();
+                }
                 ApplyGravity();
                 return;
             }
@@ -173,9 +206,11 @@ namespace HoldPointShowdown.AI
         private void AcquireNearestOpponent()
         {
             _nextTargetSearchAt = Time.time + 0.45f;
+            Transform previousTarget = _target;
             _target = null;
             _targetDamageable = null;
             float bestDistance = float.MaxValue;
+            float detectionSquared = _detectionRange * _detectionRange;
 
             if (_combatants == null)
             {
@@ -199,12 +234,16 @@ namespace HoldPointShowdown.AI
                 }
 
                 float distance = (candidate.transform.position - transform.position).sqrMagnitude;
-                if (distance < bestDistance)
+                if (distance <= detectionSquared && distance < bestDistance)
                 {
                     bestDistance = distance;
                     _target = candidate.transform;
                     _targetDamageable = candidateDamageable;
                 }
+            }
+            if (_target != null && _target != previousTarget)
+            {
+                _targetAcquiredAt = Time.time;
             }
         }
 
@@ -240,6 +279,20 @@ namespace HoldPointShowdown.AI
                 return;
             }
 
+            WeaponConfig carried = _inventory != null && _inventory.Loadout != null
+                ? _inventory.Loadout.ActiveWeapon
+                : null;
+            if (carried != null && carried != _weaponConfig)
+            {
+                _weaponConfig = carried;
+                _damage = carried.Damage;
+                _attackRange = Mathf.Min(_detectionRange, carried.Range);
+                _burstInterval = 1f / carried.ShotsPerSecond;
+                _burstSize = carried.FireMode == WeaponFireMode.Burst
+                    ? carried.BurstCount
+                    : Mathf.Clamp(Mathf.RoundToInt(carried.ShotsPerSecond * 0.4f), 2, 4);
+            }
+
             if (_burstShotsRemaining <= 0)
             {
                 if (Time.time < _nextShotAt)
@@ -256,6 +309,7 @@ namespace HoldPointShowdown.AI
             }
             _burstShotsRemaining--;
             _nextBurstShotAt = Time.time + _burstInterval;
+            _lifecycle?.CancelSpawnProtection();
             Vector3 origin = _muzzle != null ? _muzzle.position : transform.position + (Vector3.up * 1.7f);
             Vector3 targetPoint = _target.position + (Vector3.up * 1.35f);
             Vector3 direct = targetPoint - origin;
@@ -301,8 +355,14 @@ namespace HoldPointShowdown.AI
                     && hitTeam.Team != _teamMember.Team;
                 if (enemy)
                 {
-                    didHit = true;
-                    hitDamageable.ApplyDamage(_damage * _damageScale, nearest.point, gameObject);
+                    float hitChance = EvaluateHitChance(distance);
+                    if (Random.value <= hitChance)
+                    {
+                        didHit = true;
+                        float falloff = _weaponConfig != null ? _weaponConfig.EvaluateFalloff(nearest.distance) : 1f;
+                        float hitMultiplier = hitDamageable.EvaluateHitMultiplier(nearest.collider, nearest.point);
+                        hitDamageable.ApplyDamage(_damage * _damageScale * falloff * hitMultiplier, nearest.point, gameObject);
+                    }
                 }
             }
 
@@ -339,6 +399,92 @@ namespace HoldPointShowdown.AI
             }
 
             Move(ResolveSteering(toBattle.normalized));
+        }
+
+        private void PerformNonCombatIntent()
+        {
+            if (_profile != null && _profile.CanStoreInChest && _inventory != null
+                && _inventory.UsedSlots >= 8 && _friendlyChest != null)
+            {
+                CurrentIntent = EnemyAIIntent.StoreSupplies;
+                if (MoveToward(_friendlyChest.transform.position, 2.8f))
+                {
+                    int stored = 0;
+                    foreach (SupplyKind kind in new[] { SupplyKind.AmmoPack, SupplyKind.Medkit, SupplyKind.ArmorPlate })
+                    {
+                        while (stored < 3 && _friendlyChest.TryDepositSupply(_inventory, _teamMember, kind))
+                        {
+                            stored++;
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (_match != null && _match.CurrentPhase == MatchPhase.Raid && !_raidDecisionMade)
+            {
+                _raidDecisionMade = true;
+                _raidCommitted = _enemyChest != null
+                    && Random.value <= (_profile != null ? _profile.RaidBaseChance : 0.2f);
+            }
+            if (_match != null && _match.CurrentPhase != MatchPhase.Raid)
+            {
+                _raidDecisionMade = false;
+                _raidCommitted = false;
+            }
+            if (_raidCommitted && _enemyChest != null && _inventory != null)
+            {
+                CurrentIntent = EnemyAIIntent.RaidBase;
+                if (MoveToward(_enemyChest.transform.position, 2.8f))
+                {
+                    bool stolen = _enemyChest.TryWithdrawSupply(_inventory, _teamMember, SupplyKind.AmmoPack)
+                        || _enemyChest.TryWithdrawSupply(_inventory, _teamMember, SupplyKind.Medkit)
+                        || _enemyChest.TryWithdrawSupply(_inventory, _teamMember, SupplyKind.ArmorPlate);
+                    _raidCommitted = !stolen;
+                }
+                return;
+            }
+
+            if (_lootDirector != null && _inventory != null && _inventory.FreeSlots > 0
+                && (_match == null || _match.CurrentPhase != MatchPhase.FinalBattle))
+            {
+                if (_lootTarget == null || !_lootTarget.IsAvailable)
+                {
+                    _lootTarget = _lootDirector.FindNearestAvailable(transform.position, 32f);
+                }
+                if (_lootTarget != null)
+                {
+                    CurrentIntent = EnemyAIIntent.SearchLoot;
+                    if (MoveToward(_lootTarget.transform.position, 1.2f))
+                    {
+                        _lootTarget.TryCollect(_inventory);
+                        _lootTarget = null;
+                    }
+                    return;
+                }
+            }
+
+            AdvanceTowardBattle();
+        }
+
+        private bool MoveToward(Vector3 destination, float stopDistance)
+        {
+            Vector3 direction = Vector3.ProjectOnPlane(destination - transform.position, Vector3.up);
+            if (direction.magnitude <= stopDistance)
+            {
+                ApplyGravity();
+                return true;
+            }
+            Move(ResolveSteering(direction.normalized));
+            return false;
+        }
+
+        private float EvaluateHitChance(float distance)
+        {
+            float chanceAt10m = _profile != null ? _profile.HitChanceAt10m : 0.55f;
+            float denominator = Mathf.Max(1f, _detectionRange - 10f);
+            float distanceFactor = Mathf.Clamp(1f - ((Mathf.Max(10f, distance) - 10f) / denominator * 0.55f), 0.25f, 1f);
+            return Mathf.Clamp01(chanceAt10m * distanceFactor);
         }
 
         private Vector3 ResolveSteering(Vector3 desiredDirection)

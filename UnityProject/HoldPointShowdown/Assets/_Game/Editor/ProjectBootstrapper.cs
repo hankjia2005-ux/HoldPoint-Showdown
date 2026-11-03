@@ -60,7 +60,7 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(MaterialsRoot);
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
-        rules.SetDemoValues();
+        rules.SetRecommendedPresets(3);
         EditorUtility.SetDirty(rules);
         ItemArtBuilder.BuildAssets();
         WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
@@ -119,7 +119,7 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(GameRoot + "/UI");
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
-        rules.SetDemoValues();
+        rules.SetRecommendedPresets(3);
         EditorUtility.SetDirty(rules);
         ItemArtBuilder.BuildAssets();
         WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
@@ -345,6 +345,9 @@ namespace HoldPointShowdown.Editor
         WeaponConfig rifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.RifleAssetPath);
         WeaponConfig shotgun = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.ShotgunAssetPath);
         WeaponConfig goldenRifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.GoldenRifleAssetPath);
+        MovementProfile movement = AssetDatabase.LoadAssetAtPath<MovementProfile>(ItemArtBuilder.MovementAssetPath);
+        LootBudgetConfig lootBudget = AssetDatabase.LoadAssetAtPath<LootBudgetConfig>(ItemArtBuilder.LootBudgetAssetPath);
+        AIProfile normalAi = AssetDatabase.LoadAssetAtPath<AIProfile>(ItemArtBuilder.AiNormalAssetPath);
 
         Material grass = GetOrCreateMaterial(MaterialsRoot + "/Grass.mat", new Color(0.34f, 0.68f, 0.43f));
         Material road = GetOrCreateMaterial(MaterialsRoot + "/Road.mat", new Color(0.17f, 0.22f, 0.28f));
@@ -398,6 +401,8 @@ namespace HoldPointShowdown.Editor
         GameObject flowObject = new("Match Flow");
         MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
         match.Configure(rules, combatants);
+        LootDirector lootDirector = flowObject.AddComponent<LootDirector>();
+        lootDirector.Configure(match, lootBudget, new[] { pistol, smg, rifle, shotgun }, 9);
 
         GameObject blueChest = CreateTeamBase("Blue Base", -58f, true, TeamId.Blue, match,
             architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
@@ -447,41 +452,51 @@ namespace HoldPointShowdown.Editor
         camera.fieldOfView = 70f;
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 280f;
-        camera.GetComponent<ThirdPersonCameraRig>().Configure(player.transform, cameraChannel);
+        TeamMember playerTeam = player.GetComponent<TeamMember>();
+        camera.GetComponent<ThirdPersonCameraRig>().Configure(
+            player.transform, cameraChannel, movement, combatants, playerTeam);
 
         PrototypeHitscanWeapon weapon = player.AddComponent<PrototypeHitscanWeapon>();
         weapon.Configure(pistol, camera);
         ThirdPersonPlayerController controller = player.AddComponent<ThirdPersonPlayerController>();
-        controller.Configure(camera, weapon);
+        controller.Configure(camera, weapon, movement);
 
         Damageable playerDamageable = player.GetComponent<Damageable>();
-        TeamMember playerTeam = player.GetComponent<TeamMember>();
         BlockCharacterVisual playerVisual = player.GetComponentInChildren<BlockCharacterVisual>();
         PrototypeWeaponEffects playerEffects = player.AddComponent<PrototypeWeaponEffects>();
         playerEffects.Configure(weapon, playerVisual != null ? playerVisual.Muzzle : null);
         EquippedWeaponView weaponView = player.AddComponent<EquippedWeaponView>();
         weaponView.Configure(weapon, playerVisual != null ? playerVisual.WeaponSocket : null, playerEffects);
         WeaponLoadout loadout = player.AddComponent<WeaponLoadout>();
-        loadout.Configure(weapon, balance != null ? balance.MaxCarriedWeapons : 2, pistol);
+        loadout.Configure(weapon, balance != null ? balance.MaxCarriedWeapons : 2, balance, pistol);
         PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
         inventory.Configure(weapon, playerDamageable, loadout, balance);
         CombatantLifecycle playerLifecycle = player.AddComponent<CombatantLifecycle>();
         playerLifecycle.Configure(match, pistol, inventory, loadout, true, cameraChannel);
 
         SharedSupplyChest blueSupplyChest = blueChest.AddComponent<SharedSupplyChest>();
-        blueSupplyChest.Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
+        blueSupplyChest.Configure(TeamId.Blue, player.transform, playerTeam, inventory, match, balance);
         SharedSupplyChest redSupplyChest = redChest.AddComponent<SharedSupplyChest>();
-        redSupplyChest.Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
+        redSupplyChest.Configure(TeamId.Red, player.transform, playerTeam, inventory, match, balance);
 
         StrategicHoldPoint holdPoint = CreateStrategicHoldPoint(
             props.transform, match, combatants, blueSupplyChest, redSupplyChest, dark, teal, yellow);
 
         CreateBot("蓝方支援", new Vector3(-3.6f, 0.85f, -53.4f), props.transform,
-            balance, combatants, cameraChannel, match, holdPoint, TeamId.Blue, rifle);
+            balance, combatants, cameraChannel, match, holdPoint, lootDirector, normalAi,
+            blueSupplyChest, redSupplyChest, TeamId.Blue, pistol);
+        CreateBot("蓝方支援乙", new Vector3(3.6f, 0.85f, -53.4f), props.transform,
+            balance, combatants, cameraChannel, match, holdPoint, lootDirector, normalAi,
+            blueSupplyChest, redSupplyChest, TeamId.Blue, pistol);
         CreateBot("红方突击甲", new Vector3(-3.6f, 0.85f, 53.4f), props.transform,
-            balance, combatants, cameraChannel, match, holdPoint, TeamId.Red, rifle);
+            balance, combatants, cameraChannel, match, holdPoint, lootDirector, normalAi,
+            redSupplyChest, blueSupplyChest, TeamId.Red, pistol);
         CreateBot("红方突击乙", new Vector3(3.6f, 0.85f, 53.4f), props.transform,
-            balance, combatants, cameraChannel, match, holdPoint, TeamId.Red, smg);
+            balance, combatants, cameraChannel, match, holdPoint, lootDirector, normalAi,
+            redSupplyChest, blueSupplyChest, TeamId.Red, pistol);
+        CreateBot("红方突击丙", new Vector3(0f, 0.85f, 50.8f), props.transform,
+            balance, combatants, cameraChannel, match, holdPoint, lootDirector, normalAi,
+            redSupplyChest, blueSupplyChest, TeamId.Red, pistol);
 
         GameObject hudObject = new("Showcase HUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
@@ -1077,6 +1092,10 @@ namespace HoldPointShowdown.Editor
         CameraDirectiveChannel cameraChannel,
         MatchPhaseController match,
         StrategicHoldPoint holdPoint,
+        LootDirector lootDirector,
+        AIProfile aiProfile,
+        SharedSupplyChest friendlyChest,
+        SharedSupplyChest enemyChest,
         TeamId team,
         WeaponConfig weaponConfig)
     {
@@ -1117,10 +1136,18 @@ namespace HoldPointShowdown.Editor
 
         PrototypeWeaponEffects effects = target.AddComponent<PrototypeWeaponEffects>();
         effects.Configure(null, muzzle);
+        PrototypeHitscanWeapon carriedWeapon = target.AddComponent<PrototypeHitscanWeapon>();
+        carriedWeapon.Configure(weaponConfig, null);
+        WeaponLoadout loadout = target.AddComponent<WeaponLoadout>();
+        loadout.Configure(carriedWeapon, balance != null ? balance.MaxCarriedWeapons : 2, balance, weaponConfig);
+        PrototypeInventory inventory = target.AddComponent<PrototypeInventory>();
+        inventory.Configure(carriedWeapon, damageable, loadout, balance);
         PrototypeEnemyAI ai = target.AddComponent<PrototypeEnemyAI>();
-        ai.Configure(muzzle, combatants, balance, weaponConfig, match, holdPoint);
+        ai.Configure(
+            muzzle, combatants, balance, weaponConfig, match, holdPoint,
+            aiProfile, lootDirector, friendlyChest, enemyChest);
         CombatantLifecycle lifecycle = target.AddComponent<CombatantLifecycle>();
-        lifecycle.Configure(match, weaponConfig, null, null, false, cameraChannel);
+        lifecycle.Configure(match, weaponConfig, inventory, loadout, false, cameraChannel);
         return target;
     }
 

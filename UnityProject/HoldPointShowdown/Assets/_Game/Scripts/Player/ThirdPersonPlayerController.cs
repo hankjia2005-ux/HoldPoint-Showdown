@@ -1,4 +1,5 @@
 using HoldPointShowdown.Combat;
+using HoldPointShowdown.Data;
 using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Presentation;
 using HoldPointShowdown.UI;
@@ -22,6 +23,12 @@ namespace HoldPointShowdown.Player
         [SerializeField, Min(0.1f)] private float _rotationSpeed = 14f;
         [SerializeField, Min(0.1f)] private float _jumpHeight = 1.25f;
         [SerializeField, Min(0.1f)] private float _gravity = 24f;
+        [SerializeField, Min(0.1f)] private float _acceleration = 22f;
+        [SerializeField, Min(0.1f)] private float _deceleration = 28f;
+        [SerializeField, Range(0f, 1f)] private float _airControl = 0.35f;
+        [SerializeField, Min(0f)] private float _jumpCooldown = 0.45f;
+        [SerializeField, Range(0.1f, 1f)] private float _adsMoveMultiplier = 0.55f;
+        [SerializeField] private MovementProfile _movementProfile;
 
         [Header("References")]
         [SerializeField] private Camera _playerCamera;
@@ -34,7 +41,10 @@ namespace HoldPointShowdown.Player
         private InputAction _sprintAction;
         private InputAction _fireAction;
         private InputAction _reloadAction;
+        private InputAction _aimAction;
         private float _verticalVelocity;
+        private Vector3 _planarVelocity;
+        private float _nextJumpAt;
         private bool _isCrouching;
         private bool _isSprinting;
         private float _lastBackwardPressedAt = -10f;
@@ -45,17 +55,22 @@ namespace HoldPointShowdown.Player
         private CombatantLifecycle _lifecycle;
         private BlockCharacterVisual _characterVisual;
         private bool _mobileFireWasHeld;
+        private PrototypeInventory _inventory;
+        private ThirdPersonCameraRig _cameraRig;
 
         public bool IsCrouching => _isCrouching;
         public bool IsSprinting => _isSprinting;
         public float MoveSpeed => _moveSpeed;
         public float SprintSpeed => _sprintSpeed;
         public float CrouchSpeed => _crouchSpeed;
+        public bool IsAiming { get; private set; }
 
-        public void Configure(Camera playerCamera, PrototypeHitscanWeapon weapon)
+        public void Configure(Camera playerCamera, PrototypeHitscanWeapon weapon, MovementProfile movementProfile = null)
         {
             _playerCamera = playerCamera;
             _weapon = weapon;
+            _movementProfile = movementProfile;
+            ApplyMovementProfile();
         }
 
         public void SetCrouching(bool crouching)
@@ -84,6 +99,9 @@ namespace HoldPointShowdown.Player
             _damageable = GetComponent<Damageable>();
             _lifecycle = GetComponent<CombatantLifecycle>();
             _characterVisual = GetComponentInChildren<BlockCharacterVisual>();
+            _inventory = GetComponent<PrototypeInventory>();
+            _cameraRig = _playerCamera != null ? _playerCamera.GetComponent<ThirdPersonCameraRig>() : null;
+            ApplyMovementProfile();
             _standingHeight = _characterController.height;
             _standingCenter = _characterController.center;
 
@@ -106,6 +124,8 @@ namespace HoldPointShowdown.Player
             _fireAction.AddBinding("<Gamepad>/rightTrigger");
             _reloadAction = new InputAction("Reload", InputActionType.Button, "<Keyboard>/r");
             _reloadAction.AddBinding("<Gamepad>/buttonWest");
+            _aimAction = new InputAction("Aim", InputActionType.Button, "<Mouse>/rightButton");
+            _aimAction.AddBinding("<Gamepad>/leftTrigger");
         }
 
         private void OnEnable()
@@ -116,6 +136,7 @@ namespace HoldPointShowdown.Player
             _sprintAction.Enable();
             _fireAction.Enable();
             _reloadAction.Enable();
+            _aimAction.Enable();
             _cursorUnlockedByUser = false;
             SetCursorLocked(PauseMenuController.ShouldCaptureGameplayCursor);
         }
@@ -129,6 +150,7 @@ namespace HoldPointShowdown.Player
             _sprintAction.Disable();
             _fireAction.Disable();
             _reloadAction.Disable();
+            _aimAction.Disable();
         }
 
         private void OnDestroy()
@@ -139,6 +161,7 @@ namespace HoldPointShowdown.Player
             _sprintAction?.Dispose();
             _fireAction?.Dispose();
             _reloadAction?.Dispose();
+            _aimAction?.Dispose();
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -154,6 +177,7 @@ namespace HoldPointShowdown.Player
             if (!PauseMenuController.ShouldCaptureGameplayCursor)
             {
                 SetSprinting(false);
+                SetAiming(false);
                 return;
             }
 
@@ -182,6 +206,7 @@ namespace HoldPointShowdown.Player
                     SetCrouching(false);
                 }
                 SetSprinting(false);
+                SetAiming(false);
                 return;
             }
 
@@ -192,17 +217,22 @@ namespace HoldPointShowdown.Player
 
             Move();
 
+            SetAiming(_aimAction.IsPressed() || MobileInputBridge.AimHeld);
+
             bool mobileFireHeld = MobileInputBridge.FireHeld;
             bool triggerHeld = _fireAction.IsPressed() || mobileFireHeld;
             bool triggerPressed = _fireAction.WasPressedThisFrame()
                 || (mobileFireHeld && !_mobileFireWasHeld);
             _mobileFireWasHeld = mobileFireHeld;
-            if ((Cursor.lockState == CursorLockMode.Locked || MobileInputBridge.IsEnabled) && triggerHeld)
+            if ((_inventory == null || _inventory.CanUseWeapon)
+                && (Cursor.lockState == CursorLockMode.Locked || MobileInputBridge.IsEnabled)
+                && triggerHeld)
             {
                 _weapon?.ProcessTrigger(triggerPressed, triggerHeld);
             }
 
-            if (_reloadAction.WasPressedThisFrame() || MobileInputBridge.ConsumeReload())
+            bool reloadRequested = _reloadAction.WasPressedThisFrame() || MobileInputBridge.ConsumeReload();
+            if ((_inventory == null || _inventory.CanUseWeapon) && reloadRequested)
             {
                 _weapon?.Reload();
             }
@@ -226,6 +256,7 @@ namespace HoldPointShowdown.Player
             }
 
             bool sprinting = !_isCrouching
+                && !IsAiming
                 && horizontal.sqrMagnitude > 0.01f
                 && (_sprintAction.IsPressed() || MobileInputBridge.SprintHeld);
             SetSprinting(sprinting);
@@ -233,9 +264,14 @@ namespace HoldPointShowdown.Player
             if (_characterController.isGrounded)
             {
                 _verticalVelocity = -2f;
-                if ((_jumpAction.WasPressedThisFrame() || MobileInputBridge.ConsumeJump()) && !_isCrouching)
+                if ((_jumpAction.WasPressedThisFrame() || MobileInputBridge.ConsumeJump())
+                    && !_isCrouching
+                    && (_inventory == null || !_inventory.IsUsingConsumable
+                        || _inventory.ConsumableMoveSpeedLimit > 0f)
+                    && Time.time >= _nextJumpAt)
                 {
                     _verticalVelocity = Mathf.Sqrt(2f * _gravity * _jumpHeight);
+                    _nextJumpAt = Time.time + _jumpCooldown;
                 }
             }
             else
@@ -246,7 +282,25 @@ namespace HoldPointShowdown.Player
             float speed = _isCrouching
                 ? _crouchSpeed
                 : (_isSprinting ? _sprintSpeed : _moveSpeed);
-            Vector3 velocity = (horizontal * speed) + (Vector3.up * _verticalVelocity);
+            if (IsAiming)
+            {
+                speed *= _adsMoveMultiplier;
+            }
+            if (_inventory != null && _inventory.IsUsingConsumable)
+            {
+                speed = Mathf.Min(speed, _inventory.ConsumableMoveSpeedLimit);
+            }
+
+            Vector3 desiredPlanar = horizontal * speed;
+            float changeRate = desiredPlanar.sqrMagnitude > _planarVelocity.sqrMagnitude
+                ? _acceleration
+                : _deceleration;
+            if (!_characterController.isGrounded)
+            {
+                changeRate *= _airControl;
+            }
+            _planarVelocity = Vector3.MoveTowards(_planarVelocity, desiredPlanar, changeRate * Time.deltaTime);
+            Vector3 velocity = _planarVelocity + (Vector3.up * _verticalVelocity);
             _characterController.Move(velocity * Time.deltaTime);
 
             Vector3 facing = Cursor.lockState == CursorLockMode.Locked
@@ -280,6 +334,34 @@ namespace HoldPointShowdown.Player
 
             _lastBackwardPressedAt = now;
             return toggle;
+        }
+
+        private void SetAiming(bool aiming)
+        {
+            if (IsAiming == aiming)
+            {
+                return;
+            }
+            IsAiming = aiming;
+            _cameraRig ??= _playerCamera != null ? _playerCamera.GetComponent<ThirdPersonCameraRig>() : null;
+            _cameraRig?.SetAiming(aiming);
+        }
+
+        private void ApplyMovementProfile()
+        {
+            if (_movementProfile == null)
+            {
+                return;
+            }
+            _moveSpeed = _movementProfile.WalkSpeed;
+            _sprintSpeed = _movementProfile.SprintSpeed;
+            _crouchSpeed = _movementProfile.CrouchSpeed;
+            _acceleration = _movementProfile.Acceleration;
+            _deceleration = _movementProfile.Deceleration;
+            _airControl = _movementProfile.AirControl;
+            _jumpHeight = _movementProfile.JumpHeight;
+            _jumpCooldown = _movementProfile.JumpCooldown;
+            _adsMoveMultiplier = _movementProfile.AdsMoveMultiplier;
         }
 
         private static void SetCursorLocked(bool locked)

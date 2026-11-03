@@ -13,19 +13,39 @@ MonoBehaviour:
   m_Name: GameBalanceConfig
   m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.GameBalanceConfig
   _playerMaxHealth: 100
-  _playerMaxArmor: 50
+  _playerMaxArmor: 40
   _playerStartingArmor: 0
-  _armorAbsorptionFraction: 0.25
+  _armorDamageRatio: 1
+  _headMultiplier: 1.5
+  _torsoMultiplier: 1
+  _limbMultiplier: 0.8
+  _falloffMid: 0.82
+  _falloffFar: 0.65
+  _falloffBeyond: 0.35
   _backpackSlots: 12
   _weaponSlotCost: 3
+  _pistolSlotCost: 2
   _maxCarriedWeapons: 2
-  _ammoPackAmount: 18
+  _ammoStack: 3
+  _medkitStack: 3
+  _armorPlateStack: 3
+  _ammoPackAmount: 24
   _medkitHealing: 40
-  _armorPlateRestore: 30
-  _pickupRespawnSeconds: 22
+  _medkitUseSeconds: 3
+  _armorPlateRestore: 20
+  _armorPlateUseSeconds: 1.5
+  _armorPlateMoveSpeed: 2
   _pickupRadius: 1.35
-  _aiDetectionRange: 72
-  _aiAttackRange: 42
+  _dropProtectionSeconds: 0.6
+  _droppedItemLifetime: 90
+  _chestCapAmmo: 8
+  _chestCapMedkit: 4
+  _chestCapArmor: 4
+  _chestCapWeapon: 4
+  _baseAmmoResupplySeconds: 90
+  _baseAmmoResupplyCap: 2
+  _aiDetectionRange: 55
+  _aiAttackRange: 45
   _aiMinimumSpread: 1.4
   _aiMaximumSpread: 6.5
-  _aiDamageScale: 0.75
+  _aiDamageScale: 1

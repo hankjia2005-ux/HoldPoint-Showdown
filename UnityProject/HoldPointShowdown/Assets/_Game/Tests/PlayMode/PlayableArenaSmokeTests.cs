@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using HoldPointShowdown.AI;
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Core;
@@ -111,10 +113,14 @@ namespace HoldPointShowdown.Tests
             yield return null;
             yield return null;
 
-            Assert.That(Object.FindAnyObjectByType<MainMenuController>(), Is.Not.Null);
-            Assert.That(Object.FindAnyObjectByType<EventSystem>(), Is.Not.Null);
+            MainMenuController menu = Object.FindAnyObjectByType<MainMenuController>();
+            EventSystem eventSystem = Object.FindAnyObjectByType<EventSystem>();
+            Assert.That(menu, Is.Not.Null);
+            Assert.That(eventSystem, Is.Not.Null);
             Assert.That(Object.FindObjectsByType<Button>(FindObjectsInactive.Exclude).Length, Is.EqualTo(3));
             Assert.That(Object.FindAnyObjectByType<PrototypeSceneLabel>(), Is.Null);
+            Assert.That(eventSystem.currentSelectedGameObject, Is.EqualTo(menu.PlayButton.gameObject),
+                "主菜单必须默认选中普通模式，保证键盘与手柄可直接确认开局。");
         }
 
         [UnityTest]
@@ -124,9 +130,11 @@ namespace HoldPointShowdown.Tests
             yield return null;
             yield return null;
 
-            PrototypeInventory inventory = Object.FindAnyObjectByType<PrototypeInventory>();
-            WeaponLoadout loadout = Object.FindAnyObjectByType<WeaponLoadout>();
-            PrototypeHitscanWeapon weapon = Object.FindAnyObjectByType<PrototypeHitscanWeapon>();
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            CombatantLifecycle human = match.GetHumanPlayer();
+            PrototypeInventory inventory = human.GetComponent<PrototypeInventory>();
+            WeaponLoadout loadout = human.GetComponent<WeaponLoadout>();
+            PrototypeHitscanWeapon weapon = human.GetComponent<PrototypeHitscanWeapon>();
             PrototypeEnemyAI[] bots = Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude);
             SharedSupplyChest[] chests = Object.FindObjectsByType<SharedSupplyChest>(FindObjectsInactive.Exclude);
             WorldItemPickup[] pickups = Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude);
@@ -134,7 +142,7 @@ namespace HoldPointShowdown.Tests
             Assert.That(inventory, Is.Not.Null);
             Assert.That(loadout, Is.Not.Null);
             Assert.That(weapon, Is.Not.Null);
-            Assert.That(bots.Length, Is.EqualTo(3));
+            Assert.That(bots.Length, Is.EqualTo(5));
             Assert.That(chests.Length, Is.EqualTo(2));
             Assert.That(pickups.Length, Is.GreaterThanOrEqualTo(12));
             Assert.That(Object.FindObjectsByType<LootCrate>(FindObjectsInactive.Exclude).Length,
@@ -147,9 +155,18 @@ namespace HoldPointShowdown.Tests
             Assert.That(Camera.main.farClipPlane, Is.GreaterThanOrEqualTo(250f));
             Assert.That(loadout.WeaponCount, Is.EqualTo(1));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
-            Assert.That(weapon.Config.Range, Is.GreaterThanOrEqualTo(100f),
-                "初始手枪射程必须覆盖第三人称镜头到对侧基地的距离");
-            Assert.That(inventory.UsedSlots, Is.EqualTo(3));
+            Assert.That(weapon.Config.Range, Is.GreaterThanOrEqualTo(80f),
+                "初始手枪射线长度必须覆盖城镇主街的常见交战距离");
+            Assert.That(inventory.UsedSlots, Is.EqualTo(2));
+            foreach (PrototypeEnemyAI bot in bots)
+            {
+                WeaponLoadout botLoadout = bot.GetComponent<WeaponLoadout>();
+                Assert.That(botLoadout, Is.Not.Null);
+                Assert.That(botLoadout.WeaponCount, Is.EqualTo(1));
+                Assert.That(botLoadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol),
+                    "所有 AI 必须和玩家一样只带白色基础手枪出生，高品质武器只能通过搜集获得");
+                bot.enabled = false;
+            }
 
             WorldItemPickup smgPickup = null;
             foreach (WorldItemPickup pickup in pickups)
@@ -165,7 +182,7 @@ namespace HoldPointShowdown.Tests
             Assert.That(smgPickup.TryCollect(inventory), Is.True);
             Assert.That(loadout.WeaponCount, Is.EqualTo(2));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.SubmachineGun));
-            Assert.That(inventory.UsedSlots, Is.EqualTo(6));
+            Assert.That(inventory.UsedSlots, Is.EqualTo(5));
 
             Assert.That(weapon.TryFire(), Is.True);
             int droppedMagazine = weapon.MagazineAmmo;
@@ -179,7 +196,9 @@ namespace HoldPointShowdown.Tests
             WorldItemPickup droppedPickup = null;
             foreach (WorldItemPickup pickup in Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude))
             {
-                if (pickup.name.StartsWith("掉落 · "))
+                if (pickup.name.StartsWith("掉落 · ")
+                    && pickup.Weapon != null
+                    && pickup.Weapon.Archetype == WeaponArchetype.SubmachineGun)
                 {
                     droppedPickup = pickup;
                     break;
@@ -270,7 +289,8 @@ namespace HoldPointShowdown.Tests
             yield return null;
             yield return null;
 
-            PrototypeInventory inventory = Object.FindAnyObjectByType<PrototypeInventory>();
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            PrototypeInventory inventory = match.GetHumanPlayer().GetComponent<PrototypeInventory>();
             LootCrate[] crates = Object.FindObjectsByType<LootCrate>(FindObjectsInactive.Exclude);
             Assert.That(crates.Length, Is.GreaterThanOrEqualTo(20));
             int pickupsBefore = Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length;
@@ -310,7 +330,7 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
-        public IEnumerator EnemyAI_AcquiresOpponentAndAdvancesAcrossMap()
+        public IEnumerator EnemyAI_AdvancesWithoutWallhack_AndAcquiresOpponentInsideDetectionRange()
         {
             SceneManager.LoadScene("ArenaTown");
             yield return null;
@@ -323,7 +343,7 @@ namespace HoldPointShowdown.Tests
             {
                 startingPositions[index] = bots[index].transform.position;
                 Assert.That(bots[index].MoveSpeed, Is.GreaterThanOrEqualTo(6f));
-                Assert.That(bots[index].BurstSize, Is.EqualTo(3));
+                Assert.That(bots[index].BurstSize, Is.InRange(2, 4));
             }
 
             yield return new WaitForSeconds(1.1f);
@@ -332,10 +352,22 @@ namespace HoldPointShowdown.Tests
             foreach (PrototypeEnemyAI bot in bots)
             {
                 anyAdvanced |= Vector3.Distance(bot.transform.position, startingPositions[System.Array.IndexOf(bots, bot)]) > 1.5f;
-                Assert.That(bot.HasTarget, Is.True);
-                Assert.That(bot.CurrentIntent, Is.Not.EqualTo(EnemyAIIntent.Advance));
             }
             Assert.That(anyAdvanced, Is.True, "NPC 应主动离开出生区推进，而不是原地防守");
+
+            PrototypeEnemyAI blueBot = bots.First(bot => bot.GetComponent<TeamMember>().Team == TeamId.Blue);
+            PrototypeEnemyAI redBot = bots.First(bot => bot.GetComponent<TeamMember>().Team == TeamId.Red);
+            CharacterController redController = redBot.GetComponent<CharacterController>();
+            redController.enabled = false;
+            redBot.transform.position = blueBot.transform.position + (blueBot.transform.forward * 18f);
+            redController.enabled = true;
+
+            yield return new WaitForSeconds(0.55f);
+
+            Assert.That(blueBot.HasTarget, Is.True,
+                "敌方进入普通 AI 的 55 米侦测半径后必须被锁定");
+            Assert.That(blueBot.CurrentIntent,
+                Is.EqualTo(EnemyAIIntent.Pursue).Or.EqualTo(EnemyAIIntent.Engage));
         }
 
         [UnityTest]
@@ -393,8 +425,8 @@ namespace HoldPointShowdown.Tests
 
             Assert.That(cameraRig, Is.Not.Null);
             Assert.That(controller, Is.Not.Null);
-            Assert.That(controller.MoveSpeed, Is.GreaterThanOrEqualTo(6f));
-            Assert.That(controller.SprintSpeed, Is.GreaterThanOrEqualTo(9f));
+            Assert.That(controller.MoveSpeed, Is.EqualTo(4.5f).Within(0.01f));
+            Assert.That(controller.SprintSpeed, Is.EqualTo(7f).Within(0.01f));
             Assert.That(controller.SprintSpeed, Is.GreaterThan(controller.MoveSpeed));
             CapsuleCollider damageHitbox = controller.GetComponentInChildren<CapsuleCollider>();
             Assert.That(damageHitbox, Is.Not.Null, "角色必须包含独立受击判定体");
@@ -410,7 +442,8 @@ namespace HoldPointShowdown.Tests
             cameraRig.SetZoomDistance(12f);
             yield return new WaitForSecondsRealtime(0.35f);
             Assert.That(cameraRig.CurrentDistance, Is.GreaterThan(distanceBefore));
-            Assert.That(cameraRig.TargetDistance, Is.EqualTo(12f).Within(0.01f));
+            Assert.That(cameraRig.TargetDistance, Is.EqualTo(7f).Within(0.01f),
+                "第三人称缩放应受数值配置的最大相机距离约束");
 
             cameraRig.SetFirstPerson(true);
             yield return null;
@@ -437,7 +470,7 @@ namespace HoldPointShowdown.Tests
 
             MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
             CombatantLifecycle player = match.GetHumanPlayer();
-            PrototypeInventory inventory = Object.FindAnyObjectByType<PrototypeInventory>();
+            PrototypeInventory inventory = player.GetComponent<PrototypeInventory>();
             WeaponLoadout loadout = inventory.GetComponent<WeaponLoadout>();
             PrototypeHitscanWeapon weapon = inventory.GetComponent<PrototypeHitscanWeapon>();
             Damageable damageable = inventory.GetComponent<Damageable>();
@@ -464,6 +497,7 @@ namespace HoldPointShowdown.Tests
             Assert.That(smgPickup.TryCollect(inventory), Is.True);
             Assert.That(inventory.TryAdd(SupplyKind.AmmoPack), Is.True);
             Assert.That(inventory.TryAdd(SupplyKind.Medkit), Is.True);
+            yield return null;
             int pickupsBeforeDeath = Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length;
 
             controller.enabled = false;
@@ -494,7 +528,7 @@ namespace HoldPointShowdown.Tests
                 new Vector2(spawnPosition.x, spawnPosition.z)), Is.LessThan(0.15f));
             Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
             Assert.That(weapon.MagazineAmmo, Is.EqualTo(12));
-            Assert.That(weapon.ReserveAmmo, Is.EqualTo(18));
+            Assert.That(weapon.ReserveAmmo, Is.EqualTo(24));
             Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
         }
 
@@ -565,14 +599,18 @@ namespace HoldPointShowdown.Tests
             Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Raid));
             Assert.That(zones[0].IsProtectionActive || zones[1].IsProtectionActive, Is.False);
             Assert.That(zones[0].IsSpawnProtectionActive && zones[1].IsSpawnProtectionActive, Is.True);
-            yield return new WaitForFixedUpdate();
+            player.Damageable.SetInvulnerable(false);
+            player.Damageable.ApplyDamage(999f, player.transform.position, null);
+            yield return new WaitForSeconds(0.1f);
+            yield return null;
+            Assert.That(player.Damageable.IsAlive, Is.True);
             Assert.That(player.Damageable.IsInvulnerable, Is.True);
             player.Damageable.ApplyDamage(50f, player.transform.position, null);
             Assert.That(player.Damageable.CurrentHealth, Is.EqualTo(100f));
 
             CharacterController controller = player.GetComponent<CharacterController>();
             controller.enabled = false;
-            player.transform.position = player.SpawnPosition + (Vector3.right * 4.2f);
+            player.transform.position += Vector3.right * 4.2f;
             controller.enabled = true;
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
@@ -660,6 +698,71 @@ namespace HoldPointShowdown.Tests
             Assert.That(match.Result, Is.EqualTo(MatchResult.BlueVictory));
             Assert.That(match.IsRunning, Is.False);
             Assert.That(match.GetRemainingTeamMembers(TeamId.Red), Is.EqualTo(0));
+        }
+
+        [UnityTest]
+        public IEnumerator AcceleratedFullMatch_AICombatAndAllPhasesRemainStable()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            LootDirector lootDirector = Object.FindAnyObjectByType<LootDirector>();
+            PrototypeEnemyAI[] bots = Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude);
+            Assert.That(match, Is.Not.Null);
+            Assert.That(lootDirector, Is.Not.Null);
+
+            PrototypeEnemyAI blueBot = bots.First(bot => bot.GetComponent<TeamMember>().Team == TeamId.Blue);
+            PrototypeEnemyAI redBot = bots.First(bot => bot.GetComponent<TeamMember>().Team == TeamId.Red);
+            foreach (PrototypeEnemyAI bot in bots)
+            {
+                bot.enabled = bot == blueBot || bot == redBot;
+            }
+
+            List<MatchPhase> observedPhases = new();
+            match.PhaseChanged += (_, phase) => observedPhases.Add(phase);
+            match.Rules.SetDemoValues(1.2f, 2.5f, 6.5f, 0.1f, 0.15f, 0.15f, 2);
+            Random.InitState(20261103);
+            match.StartMatch();
+
+            TeleportForSoak(blueBot, new Vector3(0f, 0.85f, -45f), Quaternion.identity);
+            TeleportForSoak(redBot, new Vector3(0f, 0.85f, -30f), Quaternion.Euler(0f, 180f, 0f));
+            yield return new WaitForFixedUpdate();
+
+            yield return new WaitForSeconds(6.8f);
+
+            Assert.That(observedPhases, Does.Contain(MatchPhase.Scavenge));
+            Assert.That(observedPhases, Does.Contain(MatchPhase.Raid));
+            Assert.That(observedPhases, Does.Contain(MatchPhase.FinalBattle));
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Complete));
+            Assert.That(match.Result, Is.Not.EqualTo(MatchResult.None));
+
+            float damageDealt = match.Combatants
+                .Select(combatant => combatant.GetComponent<CombatantStats>())
+                .Where(stats => stats != null)
+                .Sum(stats => stats.DamageDealt);
+            Assert.That(damageDealt, Is.GreaterThan(0f),
+                "普通 AI 在开放交战距离内必须能产生实际伤害，不能只做移动表演");
+            Assert.That(lootDirector.AvailableBudget, Is.InRange(0, lootDirector.TotalBudget));
+
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                Vector3 position = combatant.transform.position;
+                Assert.That(float.IsNaN(position.x) || float.IsInfinity(position.x), Is.False);
+                Assert.That(float.IsNaN(position.y) || float.IsInfinity(position.y), Is.False);
+                Assert.That(float.IsNaN(position.z) || float.IsInfinity(position.z), Is.False);
+                Assert.That(position.y, Is.GreaterThan(-5f),
+                    $"{combatant.name} 不应穿过地图地面");
+            }
+        }
+
+        private static void TeleportForSoak(PrototypeEnemyAI bot, Vector3 position, Quaternion rotation)
+        {
+            CharacterController controller = bot.GetComponent<CharacterController>();
+            if (controller != null) controller.enabled = false;
+            bot.transform.SetPositionAndRotation(position, rotation);
+            if (controller != null) controller.enabled = true;
         }
 
         private static void MoveTeamForPointTest(MatchPhaseController match, TeamId team, Vector3 destination)

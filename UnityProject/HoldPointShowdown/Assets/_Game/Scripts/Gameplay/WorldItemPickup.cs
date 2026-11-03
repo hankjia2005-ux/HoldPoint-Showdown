@@ -24,11 +24,13 @@ namespace HoldPointShowdown.Gameplay
         private float _collectableAt;
         private float _despawnAt;
         private MatchPhaseController _match;
+        private LootDirector _director;
 
         public bool IsWeapon => _weapon != null;
         public bool IsAvailable => _available;
         public WeaponConfig Weapon => _weapon;
         public SupplyKind SupplyKind => _supplyKind;
+        public int Amount => _amount;
 
         public void ConfigureSupply(SupplyKind kind, int amount, float respawnSeconds, GameObject visualRoot)
         {
@@ -63,7 +65,7 @@ namespace HoldPointShowdown.Gameplay
             int reserveAmmo,
             GameObject visualRoot,
             float pickupDelay = 0.8f,
-            float despawnSeconds = 60f)
+            float despawnSeconds = 90f)
         {
             _weapon = weapon;
             _amount = 1;
@@ -81,7 +83,7 @@ namespace HoldPointShowdown.Gameplay
             int amount,
             GameObject visualRoot,
             float pickupDelay = 0.6f,
-            float despawnSeconds = 60f)
+            float despawnSeconds = 90f)
         {
             _supplyKind = kind;
             _amount = Mathf.Max(1, amount);
@@ -144,6 +146,13 @@ namespace HoldPointShowdown.Gameplay
         private void Start()
         {
             _match = Object.FindAnyObjectByType<MatchPhaseController>();
+            _director = Object.FindAnyObjectByType<LootDirector>();
+            _director?.Register(this);
+        }
+
+        private void OnDestroy()
+        {
+            _director?.Unregister(this);
         }
 
         private void Update()
@@ -179,7 +188,12 @@ namespace HoldPointShowdown.Gameplay
             SetAvailable(true);
         }
 
-        public static WorldItemPickup CreateSupplyDrop(SupplyKind kind, int amount, Vector3 position)
+        public static WorldItemPickup CreateSupplyDrop(
+            SupplyKind kind,
+            int amount,
+            Vector3 position,
+            float pickupDelay = 0.6f,
+            float despawnSeconds = 90f)
         {
             GameObject root = new($"掉落 · {FormatSupplyName(kind)} × {Mathf.Max(1, amount)}");
             root.transform.position = position;
@@ -218,7 +232,7 @@ namespace HoldPointShowdown.Gameplay
             }
 
             WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
-            pickup.ConfigureDroppedSupply(kind, amount, visual);
+            pickup.ConfigureDroppedSupply(kind, amount, visual, pickupDelay, despawnSeconds);
             return pickup;
         }
 
@@ -228,7 +242,7 @@ namespace HoldPointShowdown.Gameplay
             int reserveAmmo,
             Vector3 position,
             float pickupDelay = 0.6f,
-            float despawnSeconds = 60f)
+            float despawnSeconds = 90f)
         {
             if (config == null)
             {

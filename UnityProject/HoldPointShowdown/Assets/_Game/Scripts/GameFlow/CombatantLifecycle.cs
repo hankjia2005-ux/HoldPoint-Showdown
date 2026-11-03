@@ -29,6 +29,10 @@ namespace HoldPointShowdown.GameFlow
         private Coroutine _respawnRoutine;
         private AudioFeedback _audioFeedback;
         private CharacterCombatFeedback _combatFeedback;
+        private PrototypeHitscanWeapon _weapon;
+        private Vector3 _activeSpawnPosition;
+        private float _spawnProtectionUntil;
+        private bool _spawnProtectionActive;
 
         public TeamId Team => _teamMember != null ? _teamMember.Team : TeamId.Blue;
         public bool IsHumanPlayer => _isHumanPlayer;
@@ -43,6 +47,7 @@ namespace HoldPointShowdown.GameFlow
             && (_match == null || _match.IsRunning);
         public Damageable Damageable => _damageable;
         public Vector3 SpawnPosition => _spawnPosition;
+        public bool IsSpawnProtected => _spawnProtectionActive && Time.time < _spawnProtectionUntil;
 
         public void Configure(
             MatchPhaseController match,
@@ -71,7 +76,8 @@ namespace HoldPointShowdown.GameFlow
             IsEliminated = false;
             FinalLivesRemaining = 0;
             RespawnAt = 0f;
-            TeleportToSpawn();
+            _spawnProtectionActive = false;
+            TeleportToSpawn(false);
             SetCollisionEnabled(true);
             _loadout?.ResetToStarter();
             _damageable?.SetInvulnerable(false);
@@ -144,6 +150,10 @@ namespace HoldPointShowdown.GameFlow
             {
                 _damageable.Died += HandleDied;
             }
+            if (_weapon != null)
+            {
+                _weapon.Fired += HandleWeaponFired;
+            }
         }
 
         private void Start()
@@ -162,6 +172,10 @@ namespace HoldPointShowdown.GameFlow
             {
                 _damageable.Died -= HandleDied;
             }
+            if (_weapon != null)
+            {
+                _weapon.Fired -= HandleWeaponFired;
+            }
 
             CancelRespawn();
         }
@@ -179,7 +193,8 @@ namespace HoldPointShowdown.GameFlow
             _inventory?.DropAllOnDeath(deathPosition);
             _loadout?.ResetToStarter();
             SetCollisionEnabled(false);
-            TeleportToSpawn();
+            CancelSpawnProtection();
+            TeleportToSpawn(false);
 
             if (_match != null)
             {
@@ -216,12 +231,15 @@ namespace HoldPointShowdown.GameFlow
             CancelRespawn();
             IsEliminated = false;
             RespawnAt = 0f;
-            TeleportToSpawn();
+            TeleportToSpawn(true);
             SetCollisionEnabled(true);
             _loadout?.ResetToStarter();
             _damageable?.SetInvulnerable(false);
             _damageable?.ResetState();
-            _damageable?.GrantInvulnerability(2f);
+            float protectionSeconds = _match != null && _match.Rules != null
+                ? _match.Rules.GetSpawnProtectionSeconds(_match.CurrentPhase)
+                : 1.5f;
+            BeginSpawnProtection(protectionSeconds);
             _audioFeedback?.PlayRespawn();
             if (_isHumanPlayer)
             {
@@ -229,7 +247,7 @@ namespace HoldPointShowdown.GameFlow
             }
         }
 
-        private void TeleportToSpawn()
+        private void TeleportToSpawn(bool chooseAlternate)
         {
             bool controllerWasEnabled = _characterController != null && _characterController.enabled;
             if (_characterController != null)
@@ -237,7 +255,8 @@ namespace HoldPointShowdown.GameFlow
                 _characterController.enabled = false;
             }
 
-            transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+            _activeSpawnPosition = chooseAlternate ? ChooseSpawnPosition() : _spawnPosition;
+            transform.SetPositionAndRotation(_activeSpawnPosition, _spawnRotation);
 
             if (_characterController != null && controllerWasEnabled && (_damageable == null || _damageable.IsAlive))
             {
@@ -271,6 +290,65 @@ namespace HoldPointShowdown.GameFlow
             _loadout ??= GetComponent<WeaponLoadout>();
             _audioFeedback ??= GetComponent<AudioFeedback>();
             _combatFeedback ??= GetComponentInChildren<CharacterCombatFeedback>();
+            _weapon ??= GetComponent<PrototypeHitscanWeapon>();
+        }
+
+        private void Update()
+        {
+            if (!_spawnProtectionActive)
+            {
+                return;
+            }
+
+            float radius = _match != null && _match.Rules != null
+                ? _match.Rules.SpawnProtectionRadius
+                : 3f;
+            if (Time.time >= _spawnProtectionUntil
+                || (transform.position - _activeSpawnPosition).sqrMagnitude > radius * radius)
+            {
+                CancelSpawnProtection();
+            }
+        }
+
+        private void BeginSpawnProtection(float seconds)
+        {
+            float duration = Mathf.Max(0f, seconds);
+            _spawnProtectionActive = duration > 0f;
+            _spawnProtectionUntil = Time.time + duration;
+            _damageable?.GrantInvulnerability(duration);
+        }
+
+        public void CancelSpawnProtection()
+        {
+            if (!_spawnProtectionActive)
+            {
+                return;
+            }
+            _spawnProtectionActive = false;
+            _spawnProtectionUntil = 0f;
+            _damageable?.ClearTemporaryInvulnerability();
+        }
+
+        private void HandleWeaponFired(HitscanShot _)
+        {
+            CancelSpawnProtection();
+        }
+
+        private Vector3 ChooseSpawnPosition()
+        {
+            if (_match != null && _match.CurrentPhase == MatchPhase.Scavenge)
+            {
+                return _spawnPosition;
+            }
+            int count = _match != null && _match.Rules != null ? _match.Rules.SpawnPointCount : 1;
+            if (count <= 1)
+            {
+                return _spawnPosition;
+            }
+
+            int index = Random.Range(0, count);
+            float centeredIndex = index - ((count - 1) * 0.5f);
+            return _spawnPosition + (_spawnRotation * Vector3.right * centeredIndex * 2.4f);
         }
     }
 }
