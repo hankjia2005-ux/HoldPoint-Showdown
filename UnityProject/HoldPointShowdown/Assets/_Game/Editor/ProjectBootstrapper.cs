@@ -357,6 +357,9 @@ namespace HoldPointShowdown.Editor
 
         CreateBlock("Grass Field", environment.transform, new Vector3(0f, -0.75f, 0f), new Vector3(92f, 1.5f, 150f), grass);
         CreateBlock("Main Street", environment.transform, new Vector3(0f, 0.04f, 0f), new Vector3(18f, 0.12f, 136f), road);
+        CreateBlock("Central Cross Street", environment.transform, new Vector3(0f, 0.055f, 0f), new Vector3(78f, 0.13f, 11f), road);
+        CreateBlock("South Cross Alley", environment.transform, new Vector3(0f, 0.055f, -30f), new Vector3(64f, 0.13f, 7f), road);
+        CreateBlock("North Cross Alley", environment.transform, new Vector3(0f, 0.055f, 30f), new Vector3(64f, 0.13f, 7f), road);
         CreateBlock("Left Sidewalk", environment.transform, new Vector3(-11f, 0.13f, 0f), new Vector3(4f, 0.26f, 136f), neutral);
         CreateBlock("Right Sidewalk", environment.transform, new Vector3(11f, 0.13f, 0f), new Vector3(4f, 0.26f, 136f), neutral);
         CreateBlock("Center Plaza", environment.transform, new Vector3(0f, 0.16f, 0f), new Vector3(26f, 0.32f, 26f), warmWhite);
@@ -385,6 +388,7 @@ namespace HoldPointShowdown.Editor
             CreateShopBuilding($"East Shop {i + 1}", 24f, -buildingRows[i], false, height, architecture.transform, warmWhite, accent, dark, glass, new[] { smg, rifle, shotgun });
         }
 
+        CreateDistrictLandmarks(architecture.transform, presentation.transform, warmWhite, dark, coral, teal, glass, yellow);
         CreateCentralLandmark(props.transform, dark, teal, yellow);
         GameObject airdropObject = new("终局金色空投");
         airdropObject.transform.SetParent(props.transform, false);
@@ -558,6 +562,29 @@ namespace HoldPointShowdown.Editor
         CreateBlock("Roof", root.transform, new Vector3(x, height + 0.28f, z), new Vector3(9.2f, 0.55f, 10.2f), accent);
         CreateBlock("Roof Trim", root.transform, new Vector3(frontX + (streetDirection * 0.2f), height + 0.55f, z), new Vector3(0.45f, 0.65f, 10.4f), dark, false);
 
+        // The reference arena reads well because every block has a layered skyline.
+        // A compact upper floor keeps that silhouette without adding inaccessible gameplay rooms.
+        float upperCenterX = x - (streetDirection * 0.7f);
+        float upperFrontX = upperCenterX + (streetDirection * 3.05f);
+        float upperY = height + 1.75f;
+        CreateBlock("Upper Storey", root.transform, new Vector3(upperCenterX, upperY, z),
+            new Vector3(6.6f, 2.9f, 7.2f), wall);
+        CreateBlock("Upper Cornice", root.transform, new Vector3(upperCenterX, height + 3.35f, z),
+            new Vector3(7.15f, 0.32f, 7.75f), accent);
+        CreateBlock("Upper Roof Cap", root.transform, new Vector3(upperCenterX, height + 3.58f, z),
+            new Vector3(6.4f, 0.18f, 7f), dark, false);
+        CreateBlock("Upper Window North", root.transform,
+            new Vector3(upperFrontX + (streetDirection * 0.31f), upperY, z + 1.8f),
+            new Vector3(0.12f, 1.25f, 1.55f), glass, false);
+        CreateBlock("Upper Window South", root.transform,
+            new Vector3(upperFrontX + (streetDirection * 0.31f), upperY, z - 1.8f),
+            new Vector3(0.12f, 1.25f, 1.55f), glass, false);
+        CreateBlock("Upper Window Divider", root.transform,
+            new Vector3(upperFrontX + (streetDirection * 0.39f), upperY, z),
+            new Vector3(0.16f, 1.55f, 0.22f), accent, false);
+        CreateBlock("Rooftop Vent", root.transform, new Vector3(upperCenterX, height + 4f, z - 1.9f),
+            new Vector3(1.1f, 0.65f, 1.3f), dark, false);
+
         for (int side = -1; side <= 1; side += 2)
         {
             CreateBlock(
@@ -566,6 +593,13 @@ namespace HoldPointShowdown.Editor
                 new Vector3(frontX + (streetDirection * 0.31f), centerY + 0.45f, z + (side * 3.15f)),
                 new Vector3(0.12f, 1.65f, 1.45f),
                 glass,
+                false);
+            CreateBlock(
+                $"Window Sill {side}",
+                root.transform,
+                new Vector3(frontX + (streetDirection * 0.39f), centerY - 0.45f, z + (side * 3.15f)),
+                new Vector3(0.18f, 0.16f, 1.8f),
+                accent,
                 false);
         }
 
@@ -583,11 +617,21 @@ namespace HoldPointShowdown.Editor
         CreateBlock("店铺招牌", root.transform, new Vector3(frontX + (streetDirection * 0.38f), height - 0.55f, z),
             new Vector3(0.22f, 1.05f, 3.5f), accent, false);
 
+        for (int stripe = -2; stripe <= 2; stripe++)
+        {
+            CreateBlock($"遮阳棚条纹 {stripe + 3}", root.transform,
+                new Vector3(frontX + (streetDirection * 1.31f), height - 1.41f, z + (stripe * 0.85f)),
+                new Vector3(0.12f, 0.06f, 0.42f), stripe % 2 == 0 ? wall : dark, false);
+        }
+
         for (int side = -1; side <= 1; side += 2)
         {
             CreateBlock($"立面包边 {side}", root.transform,
                 new Vector3(frontX + (streetDirection * 0.28f), centerY, z + (side * 4.18f)),
                 new Vector3(0.28f, height + 0.3f, 0.28f), dark, false);
+            CreateBlock($"立面中柱 {side}", root.transform,
+                new Vector3(frontX + (streetDirection * 0.3f), centerY, z + (side * 1.72f)),
+                new Vector3(0.22f, height - 0.8f, 0.24f), accent, false);
             CreateBlock($"室内货架 {side}", root.transform,
                 new Vector3(x - (streetDirection * 1.4f), 1.45f, z + (side * 3.35f)),
                 new Vector3(2.8f, 0.18f, 1.05f), dark);
@@ -630,6 +674,89 @@ namespace HoldPointShowdown.Editor
         CreateBlock("Beacon Column", parent, new Vector3(0f, 2.2f, 0f), new Vector3(0.72f, 1.55f, 0.72f), dark, true, PrimitiveType.Cylinder);
         GameObject beacon = CreateBlock("Beacon Core", parent, new Vector3(0f, 4.15f, 0f), new Vector3(1.25f, 1.25f, 1.25f), glow, false, PrimitiveType.Sphere);
         beacon.AddComponent<ShowcasePropMotion>().Configure(36f, 0.18f, 0.8f);
+
+        for (int xSide = -1; xSide <= 1; xSide += 2)
+        {
+            for (int zSide = -1; zSide <= 1; zSide += 2)
+            {
+                Vector3 corner = new(xSide * 6.9f, 0.6f, zSide * 6.9f);
+                CreateBlock($"Plaza Corner Plinth {xSide} {zSide}", parent, corner,
+                    new Vector3(2.25f, 0.35f, 2.25f), dark);
+                CreateBlock($"Plaza Corner Light {xSide} {zSide}", parent, corner + new Vector3(0f, 0.55f, 0f),
+                    new Vector3(1.25f, 0.48f, 1.25f), glow, false, PrimitiveType.Cylinder);
+                CreateBlock($"Plaza Corner Rail X {xSide} {zSide}", parent,
+                    corner + new Vector3(-xSide * 1.2f, 0.48f, 0f),
+                    new Vector3(0.16f, 0.8f, 2.4f), teal, false);
+                CreateBlock($"Plaza Corner Rail Z {xSide} {zSide}", parent,
+                    corner + new Vector3(0f, 0.48f, -zSide * 1.2f),
+                    new Vector3(2.4f, 0.8f, 0.16f), teal, false);
+            }
+        }
+    }
+
+    private static void CreateDistrictLandmarks(
+        Transform architectureParent,
+        Transform presentationParent,
+        Material wall,
+        Material dark,
+        Material coral,
+        Material teal,
+        Material glass,
+        Material glow)
+    {
+        Vector3[] positions =
+        {
+            new(-35f, 0f, -21.5f), new(35f, 0f, -21.5f),
+            new(-35f, 0f, 21.5f), new(35f, 0f, 21.5f)
+        };
+
+        for (int index = 0; index < positions.Length; index++)
+        {
+            Vector3 position = positions[index];
+            float streetFacing = Mathf.Sign(-position.x);
+            Material accent = index % 2 == 0 ? coral : teal;
+            GameObject tower = new($"城区地标塔 {index + 1}");
+            tower.transform.SetParent(architectureParent);
+
+            CreateBlock("塔楼地台", tower.transform, position + new Vector3(0f, 0.35f, 0f),
+                new Vector3(7.6f, 0.7f, 8.2f), dark);
+            CreateBlock("塔楼主体", tower.transform, position + new Vector3(0f, 3.5f, 0f),
+                new Vector3(6.7f, 6.4f, 7.3f), wall);
+            CreateBlock("塔楼腰线", tower.transform, position + new Vector3(0f, 5.65f, 0f),
+                new Vector3(7.05f, 0.36f, 7.65f), accent, false);
+            CreateBlock("塔楼顶层", tower.transform, position + new Vector3(0f, 7.25f, 0f),
+                new Vector3(5.2f, 2.7f, 5.8f), wall);
+            CreateBlock("塔楼屋檐", tower.transform, position + new Vector3(0f, 8.72f, 0f),
+                new Vector3(5.8f, 0.34f, 6.4f), accent, false);
+            CreateBlock("塔楼暗顶", tower.transform, position + new Vector3(0f, 8.96f, 0f),
+                new Vector3(5.25f, 0.18f, 5.85f), dark, false);
+
+            for (int floor = 0; floor < 2; floor++)
+            {
+                float y = 2.55f + (floor * 3.1f);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    CreateBlock($"塔楼窗 {floor} {side}", tower.transform,
+                        position + new Vector3(streetFacing * 3.39f, y, side * 1.85f),
+                        new Vector3(0.12f, 1.35f, 1.45f), glass, false);
+                    CreateBlock($"塔楼窗框 {floor} {side}", tower.transform,
+                        position + new Vector3(streetFacing * 3.47f, y - 0.78f, side * 1.85f),
+                        new Vector3(0.18f, 0.14f, 1.72f), accent, false);
+                }
+            }
+
+            CreateBlock("发光城区编号", tower.transform,
+                position + new Vector3(streetFacing * 3.5f, 7.2f, 0f),
+                new Vector3(0.14f, 1.1f, 2.2f), glow, false);
+            CreateBlock("屋顶设备", tower.transform, position + new Vector3(0f, 9.45f, 0f),
+                new Vector3(1.25f, 0.8f, 1.25f), dark, false, PrimitiveType.Cylinder);
+            CreateBlock("屋顶信标", tower.transform, position + new Vector3(0f, 10.3f, 0f),
+                new Vector3(0.48f, 0.48f, 0.48f), glow, false, PrimitiveType.Sphere);
+
+            CreateBlock($"城区地标灯池 {index + 1}", presentationParent,
+                position + new Vector3(-streetFacing * 4.5f, 0.28f, 0f),
+                new Vector3(2.1f, 0.35f, 4.6f), accent, false);
+        }
     }
 
     private static void CreateBoundaryFences(Transform parent, Material dark, Material accent)
@@ -638,6 +765,22 @@ namespace HoldPointShowdown.Editor
         CreateBlock("East Boundary", parent, new Vector3(45.2f, 1.15f, 0f), new Vector3(0.55f, 2.3f, 146f), dark);
         CreateBlock("South Boundary", parent, new Vector3(0f, 1.15f, -73f), new Vector3(90f, 2.3f, 0.55f), accent);
         CreateBlock("North Boundary", parent, new Vector3(0f, 1.15f, 73f), new Vector3(90f, 2.3f, 0.55f), accent);
+
+        for (int z = -66; z <= 66; z += 12)
+        {
+            CreateBlock($"West Boundary Pier {z}", parent, new Vector3(-45.15f, 2f, z),
+                new Vector3(1.05f, 4f, 1.05f), accent);
+            CreateBlock($"East Boundary Pier {z}", parent, new Vector3(45.15f, 2f, z),
+                new Vector3(1.05f, 4f, 1.05f), accent);
+        }
+
+        for (int x = -42; x <= 42; x += 12)
+        {
+            CreateBlock($"South Boundary Pier {x}", parent, new Vector3(x, 2f, -72.95f),
+                new Vector3(1.05f, 4f, 1.05f), dark);
+            CreateBlock($"North Boundary Pier {x}", parent, new Vector3(x, 2f, 72.95f),
+                new Vector3(1.05f, 4f, 1.05f), dark);
+        }
     }
 
     private static void CreateCoverLayout(

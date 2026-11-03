@@ -88,20 +88,35 @@ namespace HoldPointShowdown.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log("道具与武器资产已重建：4 档武器、弹药、医疗包、护甲与数值配置。 ");
+            Debug.Log("道具与武器资产已重建：5 档武器、弹药、医疗包、护甲与数值配置。");
         }
 
         private static GameObject BuildPistol(Material metal, Material polymer, Material rarity, Material glow)
         {
             GameObject root = CreateWeaponRoot("白色基础手枪");
             List<Renderer> renderers = new();
-            CreatePart("套筒", root.transform, new Vector3(0f, 0.04f, 0.36f), new Vector3(0.22f, 0.18f, 0.76f), metal, renderers);
-            CreatePart("套筒高光", root.transform, new Vector3(0f, 0.145f, 0.34f), new Vector3(0.16f, 0.035f, 0.58f), rarity, renderers);
-            CreatePart("下机匣", root.transform, new Vector3(0f, -0.09f, 0.24f), new Vector3(0.2f, 0.12f, 0.46f), polymer, renderers);
-            CreatePart("握把", root.transform, new Vector3(0f, -0.31f, 0.07f), new Vector3(0.19f, 0.4f, 0.2f), polymer, renderers, new Vector3(-12f, 0f, 0f));
-            CreatePart("弹匣底板", root.transform, new Vector3(0f, -0.53f, 0.02f), new Vector3(0.24f, 0.07f, 0.25f), rarity, renderers);
-            CreatePart("准星", root.transform, new Vector3(0f, 0.17f, 0.63f), new Vector3(0.05f, 0.07f, 0.06f), glow, renderers);
-            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.04f, 0.77f));
+            CreatePart("白色套筒", root.transform, new Vector3(0f, 0.06f, 0.38f), new Vector3(0.27f, 0.2f, 0.88f), rarity, renderers);
+            CreatePart("套筒顶部切面", root.transform, new Vector3(0f, 0.175f, 0.35f), new Vector3(0.19f, 0.045f, 0.66f), metal, renderers);
+            CreatePart("枪管外露", root.transform, new Vector3(0f, 0.075f, 0.84f), new Vector3(0.13f, 0.105f, 0.17f), metal, renderers);
+            CreateCylinder("枪口环", root.transform, new Vector3(0f, 0.075f, 0.94f), new Vector3(0.095f, 0.055f, 0.095f), metal, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("枪口内膛", root.transform, new Vector3(0f, 0.075f, 1.002f), new Vector3(0.052f, 0.016f, 0.052f), polymer, renderers, new Vector3(90f, 0f, 0f));
+            CreatePart("下机匣", root.transform, new Vector3(0f, -0.09f, 0.3f), new Vector3(0.24f, 0.13f, 0.52f), polymer, renderers);
+            CreatePart("扳机护圈前", root.transform, new Vector3(0f, -0.24f, 0.34f), new Vector3(0.045f, 0.2f, 0.06f), metal, renderers, new Vector3(18f, 0f, 0f));
+            CreatePart("扳机护圈后", root.transform, new Vector3(0f, -0.25f, 0.14f), new Vector3(0.045f, 0.2f, 0.06f), metal, renderers, new Vector3(-18f, 0f, 0f));
+            CreatePart("扳机护圈底", root.transform, new Vector3(0f, -0.34f, 0.24f), new Vector3(0.045f, 0.05f, 0.22f), metal, renderers);
+            CreatePart("扳机", root.transform, new Vector3(0f, -0.23f, 0.25f), new Vector3(0.055f, 0.15f, 0.04f), glow, renderers, new Vector3(-18f, 0f, 0f));
+            CreatePart("倾斜握把", root.transform, new Vector3(0f, -0.38f, 0.02f), new Vector3(0.23f, 0.48f, 0.24f), polymer, renderers, new Vector3(-14f, 0f, 0f));
+            for (int index = 0; index < 4; index++)
+            {
+                CreatePart($"握把防滑纹 {index + 1}", root.transform,
+                    new Vector3(0f, -0.23f - (index * 0.085f), 0.145f - (index * 0.02f)),
+                    new Vector3(0.245f, 0.025f, 0.045f), rarity, renderers, new Vector3(-14f, 0f, 0f));
+            }
+            CreatePart("弹匣底板", root.transform, new Vector3(0f, -0.63f, -0.04f), new Vector3(0.28f, 0.075f, 0.29f), rarity, renderers, new Vector3(-14f, 0f, 0f));
+            CreatePart("后照门", root.transform, new Vector3(0f, 0.23f, 0.05f), new Vector3(0.15f, 0.07f, 0.07f), metal, renderers);
+            CreatePart("前准星", root.transform, new Vector3(0f, 0.235f, 0.79f), new Vector3(0.055f, 0.08f, 0.055f), glow, renderers);
+            CreatePart("保险钮", root.transform, new Vector3(0.145f, 0.04f, 0.12f), new Vector3(0.055f, 0.055f, 0.12f), glow, renderers);
+            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.075f, 1.02f));
             root.AddComponent<WeaponModelBinding>().Configure(muzzle);
             return SavePrefab(root, PistolPrefabPath);
         }
@@ -110,16 +125,32 @@ namespace HoldPointShowdown.Editor
         {
             GameObject root = CreateWeaponRoot("绿色疾风冲锋枪");
             List<Renderer> renderers = new();
-            CreatePart("机匣", root.transform, new Vector3(0f, 0f, 0.34f), new Vector3(0.31f, 0.3f, 0.82f), polymer, renderers);
-            CreatePart("机匣护片", root.transform, new Vector3(0f, 0.12f, 0.32f), new Vector3(0.34f, 0.1f, 0.56f), rarity, renderers);
-            CreatePart("枪托杆", root.transform, new Vector3(0f, 0.02f, -0.26f), new Vector3(0.12f, 0.12f, 0.5f), metal, renderers);
-            CreatePart("枪托", root.transform, new Vector3(0f, -0.02f, -0.52f), new Vector3(0.28f, 0.42f, 0.16f), polymer, renderers);
-            CreatePart("握把", root.transform, new Vector3(0f, -0.32f, 0.03f), new Vector3(0.2f, 0.4f, 0.22f), polymer, renderers, new Vector3(-10f, 0f, 0f));
-            CreatePart("弹匣", root.transform, new Vector3(0f, -0.38f, 0.38f), new Vector3(0.2f, 0.5f, 0.2f), rarity, renderers, new Vector3(-6f, 0f, 0f));
-            CreatePart("护木", root.transform, new Vector3(0f, 0f, 0.84f), new Vector3(0.28f, 0.24f, 0.42f), metal, renderers);
-            CreateCylinder("枪管", root.transform, new Vector3(0f, 0f, 1.13f), new Vector3(0.075f, 0.34f, 0.075f), metal, renderers, new Vector3(90f, 0f, 0f));
-            CreatePart("全息瞄具", root.transform, new Vector3(0f, 0.27f, 0.39f), new Vector3(0.18f, 0.18f, 0.24f), glow, renderers);
-            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0f, 1.46f));
+            CreatePart("绿色机匣", root.transform, new Vector3(0f, 0.03f, 0.34f), new Vector3(0.35f, 0.31f, 0.86f), rarity, renderers);
+            CreatePart("下机匣", root.transform, new Vector3(0f, -0.14f, 0.25f), new Vector3(0.31f, 0.15f, 0.5f), polymer, renderers);
+            CreatePart("顶部导轨", root.transform, new Vector3(0f, 0.225f, 0.42f), new Vector3(0.21f, 0.055f, 0.92f), metal, renderers);
+            AddRailTeeth("顶部导轨齿", root.transform, 0.02f, 0.27f, 0.06f, 7, 0.14f, metal, renderers);
+            CreatePart("枪托连接杆", root.transform, new Vector3(0f, 0.05f, -0.34f), new Vector3(0.12f, 0.12f, 0.62f), metal, renderers);
+            CreatePart("伸缩托上梁", root.transform, new Vector3(0f, 0.15f, -0.68f), new Vector3(0.25f, 0.1f, 0.4f), polymer, renderers, new Vector3(-8f, 0f, 0f));
+            CreatePart("伸缩托下梁", root.transform, new Vector3(0f, -0.08f, -0.68f), new Vector3(0.25f, 0.1f, 0.4f), polymer, renderers, new Vector3(8f, 0f, 0f));
+            CreatePart("枪托肩垫", root.transform, new Vector3(0f, 0.02f, -0.93f), new Vector3(0.31f, 0.48f, 0.14f), polymer, renderers);
+            CreatePart("握把", root.transform, new Vector3(0f, -0.38f, -0.02f), new Vector3(0.22f, 0.46f, 0.24f), polymer, renderers, new Vector3(-12f, 0f, 0f));
+            CreatePart("弧形弹匣上段", root.transform, new Vector3(0f, -0.38f, 0.39f), new Vector3(0.23f, 0.42f, 0.22f), metal, renderers, new Vector3(-5f, 0f, 0f));
+            CreatePart("弧形弹匣下段", root.transform, new Vector3(0f, -0.68f, 0.32f), new Vector3(0.22f, 0.28f, 0.2f), metal, renderers, new Vector3(-14f, 0f, 0f));
+            CreatePart("绿色护木", root.transform, new Vector3(0f, 0.03f, 0.91f), new Vector3(0.36f, 0.27f, 0.56f), rarity, renderers);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int index = 0; index < 3; index++)
+                {
+                    CreatePart($"护木散热孔 {side} {index + 1}", root.transform,
+                        new Vector3(side * 0.19f, 0.05f, 0.74f + (index * 0.16f)),
+                        new Vector3(0.025f, 0.09f, 0.1f), polymer, renderers);
+                }
+            }
+            CreateCylinder("短枪管", root.transform, new Vector3(0f, 0.03f, 1.35f), new Vector3(0.075f, 0.3f, 0.075f), metal, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("抑制器", root.transform, new Vector3(0f, 0.03f, 1.67f), new Vector3(0.13f, 0.34f, 0.13f), rarity, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("抑制器前盖", root.transform, new Vector3(0f, 0.03f, 2.015f), new Vector3(0.105f, 0.035f, 0.105f), metal, renderers, new Vector3(90f, 0f, 0f));
+            AddScope("战术瞄具", root.transform, new Vector3(0f, 0.42f, 0.38f), 0.14f, 0.4f, metal, glow, renderers);
+            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.03f, 2.06f));
             root.AddComponent<WeaponModelBinding>().Configure(muzzle);
             return SavePrefab(root, SmgPrefabPath);
         }
@@ -128,17 +159,34 @@ namespace HoldPointShowdown.Editor
         {
             GameObject root = CreateWeaponRoot("蓝色先锋步枪");
             List<Renderer> renderers = new();
-            CreatePart("上机匣", root.transform, new Vector3(0f, 0.08f, 0.28f), new Vector3(0.3f, 0.24f, 0.9f), metal, renderers);
-            CreatePart("下机匣", root.transform, new Vector3(0f, -0.1f, 0.22f), new Vector3(0.28f, 0.19f, 0.55f), polymer, renderers);
-            CreatePart("枪托", root.transform, new Vector3(0f, 0f, -0.49f), new Vector3(0.33f, 0.42f, 0.62f), polymer, renderers);
-            CreatePart("枪托饰条", root.transform, new Vector3(0f, 0.12f, -0.52f), new Vector3(0.36f, 0.08f, 0.5f), rarity, renderers);
-            CreatePart("握把", root.transform, new Vector3(0f, -0.36f, -0.02f), new Vector3(0.21f, 0.43f, 0.23f), polymer, renderers, new Vector3(-12f, 0f, 0f));
-            CreatePart("弧形弹匣", root.transform, new Vector3(0f, -0.42f, 0.39f), new Vector3(0.22f, 0.55f, 0.24f), rarity, renderers, new Vector3(-10f, 0f, 0f));
-            CreatePart("护木", root.transform, new Vector3(0f, 0.02f, 0.92f), new Vector3(0.32f, 0.28f, 0.78f), rarity, renderers);
-            CreateCylinder("枪管", root.transform, new Vector3(0f, 0.02f, 1.48f), new Vector3(0.065f, 0.45f, 0.065f), metal, renderers, new Vector3(90f, 0f, 0f));
-            CreatePart("瞄准镜座", root.transform, new Vector3(0f, 0.27f, 0.29f), new Vector3(0.2f, 0.1f, 0.4f), polymer, renderers);
-            CreateCylinder("瞄准镜", root.transform, new Vector3(0f, 0.39f, 0.29f), new Vector3(0.13f, 0.32f, 0.13f), glow, renderers, new Vector3(90f, 0f, 0f));
-            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.02f, 1.93f));
+            CreatePart("蓝色上机匣", root.transform, new Vector3(0f, 0.08f, 0.32f), new Vector3(0.34f, 0.26f, 0.94f), rarity, renderers);
+            CreatePart("下机匣", root.transform, new Vector3(0f, -0.12f, 0.25f), new Vector3(0.31f, 0.2f, 0.58f), metal, renderers);
+            CreatePart("枪机拉柄", root.transform, new Vector3(0.205f, 0.1f, 0.16f), new Vector3(0.09f, 0.08f, 0.22f), glow, renderers);
+            CreatePart("枪托缓冲管", root.transform, new Vector3(0f, 0.05f, -0.37f), new Vector3(0.13f, 0.14f, 0.58f), metal, renderers);
+            CreatePart("枪托上梁", root.transform, new Vector3(0f, 0.18f, -0.68f), new Vector3(0.34f, 0.13f, 0.55f), polymer, renderers, new Vector3(-6f, 0f, 0f));
+            CreatePart("枪托下梁", root.transform, new Vector3(0f, -0.08f, -0.68f), new Vector3(0.28f, 0.12f, 0.48f), polymer, renderers, new Vector3(10f, 0f, 0f));
+            CreatePart("枪托肩垫", root.transform, new Vector3(0f, 0.02f, -1.02f), new Vector3(0.36f, 0.53f, 0.15f), polymer, renderers);
+            CreatePart("枪托蓝色饰片", root.transform, new Vector3(0f, 0.23f, -0.68f), new Vector3(0.37f, 0.07f, 0.42f), rarity, renderers);
+            CreatePart("握把", root.transform, new Vector3(0f, -0.4f, -0.03f), new Vector3(0.23f, 0.48f, 0.25f), polymer, renderers, new Vector3(-13f, 0f, 0f));
+            CreatePart("弧形弹匣上段", root.transform, new Vector3(0f, -0.42f, 0.4f), new Vector3(0.24f, 0.45f, 0.24f), metal, renderers, new Vector3(-6f, 0f, 0f));
+            CreatePart("弧形弹匣下段", root.transform, new Vector3(0f, -0.73f, 0.31f), new Vector3(0.23f, 0.3f, 0.21f), metal, renderers, new Vector3(-17f, 0f, 0f));
+            CreatePart("蓝色护木", root.transform, new Vector3(0f, 0.05f, 1.02f), new Vector3(0.38f, 0.29f, 0.94f), rarity, renderers);
+            AddRailTeeth("护木顶轨", root.transform, 0.54f, 0.245f, 0.07f, 7, 0.14f, metal, renderers);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int index = 0; index < 4; index++)
+                {
+                    CreatePart($"护木开孔 {side} {index + 1}", root.transform,
+                        new Vector3(side * 0.205f, 0.055f, 0.72f + (index * 0.19f)),
+                        new Vector3(0.025f, 0.1f, 0.12f), polymer, renderers);
+                }
+            }
+            CreateCylinder("枪管", root.transform, new Vector3(0f, 0.05f, 1.72f), new Vector3(0.07f, 0.52f, 0.07f), metal, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("枪口制退器", root.transform, new Vector3(0f, 0.05f, 2.22f), new Vector3(0.11f, 0.16f, 0.11f), metal, renderers, new Vector3(90f, 0f, 0f));
+            CreatePart("制退器左孔", root.transform, new Vector3(-0.11f, 0.05f, 2.22f), new Vector3(0.02f, 0.08f, 0.12f), polymer, renderers);
+            CreatePart("制退器右孔", root.transform, new Vector3(0.11f, 0.05f, 2.22f), new Vector3(0.02f, 0.08f, 0.12f), polymer, renderers);
+            AddScope("中距瞄准镜", root.transform, new Vector3(0f, 0.43f, 0.28f), 0.16f, 0.48f, metal, glow, renderers);
+            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.05f, 2.4f));
             root.AddComponent<WeaponModelBinding>().Configure(muzzle);
             return SavePrefab(root, RiflePrefabPath);
         }
@@ -147,16 +195,33 @@ namespace HoldPointShowdown.Editor
         {
             GameObject root = CreateWeaponRoot("紫色风暴连发霰弹枪");
             List<Renderer> renderers = new();
-            CreatePart("鼓形机匣", root.transform, new Vector3(0f, 0.03f, 0.32f), new Vector3(0.42f, 0.38f, 0.74f), polymer, renderers);
-            CreatePart("机匣装甲", root.transform, new Vector3(0f, 0.18f, 0.35f), new Vector3(0.46f, 0.12f, 0.62f), rarity, renderers);
-            CreatePart("短枪托", root.transform, new Vector3(0f, -0.03f, -0.39f), new Vector3(0.42f, 0.48f, 0.52f), polymer, renderers);
-            CreatePart("握把", root.transform, new Vector3(0f, -0.36f, -0.01f), new Vector3(0.24f, 0.42f, 0.25f), polymer, renderers, new Vector3(-13f, 0f, 0f));
-            CreateCylinder("弹鼓", root.transform, new Vector3(0f, -0.38f, 0.42f), new Vector3(0.34f, 0.17f, 0.34f), rarity, renderers);
-            CreatePart("前护木", root.transform, new Vector3(0f, 0.02f, 0.88f), new Vector3(0.48f, 0.34f, 0.55f), rarity, renderers);
-            CreateCylinder("左枪管", root.transform, new Vector3(-0.1f, 0.06f, 1.27f), new Vector3(0.08f, 0.42f, 0.08f), metal, renderers, new Vector3(90f, 0f, 0f));
-            CreateCylinder("右枪管", root.transform, new Vector3(0.1f, 0.06f, 1.27f), new Vector3(0.08f, 0.42f, 0.08f), metal, renderers, new Vector3(90f, 0f, 0f));
-            CreatePart("反射瞄具", root.transform, new Vector3(0f, 0.33f, 0.42f), new Vector3(0.24f, 0.2f, 0.2f), glow, renderers);
-            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.06f, 1.69f));
+            CreatePart("紫色机匣", root.transform, new Vector3(0f, 0.04f, 0.34f), new Vector3(0.44f, 0.39f, 0.78f), rarity, renderers);
+            CreatePart("机匣下护板", root.transform, new Vector3(0f, -0.17f, 0.32f), new Vector3(0.39f, 0.12f, 0.62f), polymer, renderers);
+            CreatePart("顶部战术轨", root.transform, new Vector3(0f, 0.27f, 0.53f), new Vector3(0.23f, 0.06f, 1.05f), metal, renderers);
+            AddRailTeeth("霰弹枪轨齿", root.transform, 0.12f, 0.315f, 0.08f, 8, 0.14f, metal, renderers);
+            CreatePart("枪托连接", root.transform, new Vector3(0f, 0.04f, -0.34f), new Vector3(0.16f, 0.14f, 0.5f), metal, renderers);
+            CreatePart("骨架托上梁", root.transform, new Vector3(0f, 0.18f, -0.65f), new Vector3(0.36f, 0.12f, 0.48f), polymer, renderers, new Vector3(-9f, 0f, 0f));
+            CreatePart("骨架托下梁", root.transform, new Vector3(0f, -0.08f, -0.65f), new Vector3(0.28f, 0.1f, 0.42f), polymer, renderers, new Vector3(12f, 0f, 0f));
+            CreatePart("枪托肩垫", root.transform, new Vector3(0f, 0.03f, -0.94f), new Vector3(0.4f, 0.52f, 0.16f), polymer, renderers);
+            CreatePart("握把", root.transform, new Vector3(0f, -0.4f, -0.03f), new Vector3(0.25f, 0.48f, 0.27f), polymer, renderers, new Vector3(-14f, 0f, 0f));
+            CreatePart("盒式弹匣上段", root.transform, new Vector3(0f, -0.42f, 0.45f), new Vector3(0.27f, 0.43f, 0.25f), metal, renderers, new Vector3(-5f, 0f, 0f));
+            CreatePart("盒式弹匣下段", root.transform, new Vector3(0f, -0.7f, 0.39f), new Vector3(0.25f, 0.25f, 0.22f), glow, renderers, new Vector3(-13f, 0f, 0f));
+            CreatePart("紫色加厚护木", root.transform, new Vector3(0f, 0.05f, 1.06f), new Vector3(0.48f, 0.35f, 0.82f), rarity, renderers);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int index = 0; index < 4; index++)
+                {
+                    CreatePart($"护木泄压孔 {side} {index + 1}", root.transform,
+                        new Vector3(side * 0.255f, 0.07f, 0.78f + (index * 0.18f)),
+                        new Vector3(0.026f, 0.11f, 0.11f), polymer, renderers);
+                }
+            }
+            CreateCylinder("粗枪管", root.transform, new Vector3(0f, 0.06f, 1.68f), new Vector3(0.105f, 0.48f, 0.105f), metal, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("枪口锁环", root.transform, new Vector3(0f, 0.06f, 2.12f), new Vector3(0.16f, 0.1f, 0.16f), rarity, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder("大口径内膛", root.transform, new Vector3(0f, 0.06f, 2.225f), new Vector3(0.09f, 0.025f, 0.09f), polymer, renderers, new Vector3(90f, 0f, 0f));
+            CreatePart("反射瞄具座", root.transform, new Vector3(0f, 0.36f, 0.38f), new Vector3(0.22f, 0.09f, 0.28f), metal, renderers);
+            CreatePart("反射镜片", root.transform, new Vector3(0f, 0.5f, 0.44f), new Vector3(0.18f, 0.18f, 0.035f), glow, renderers, new Vector3(-8f, 0f, 0f));
+            Transform muzzle = CreatePivot("枪口", root.transform, new Vector3(0f, 0.06f, 2.27f));
             root.AddComponent<WeaponModelBinding>().Configure(muzzle);
             return SavePrefab(root, ShotgunPrefabPath);
         }
@@ -177,9 +242,63 @@ namespace HoldPointShowdown.Editor
                 }
                 renderer.sharedMaterials = materials;
             }
+
+            List<Renderer> renderers = new(contents.GetComponentsInChildren<Renderer>(true));
+            CreatePart("传奇枪口冠", contents.transform, new Vector3(0f, 0.05f, 2.48f),
+                new Vector3(0.34f, 0.26f, 0.18f), legendary, renderers);
+            CreatePart("左破晓翼", contents.transform, new Vector3(-0.27f, 0.12f, 1.2f),
+                new Vector3(0.12f, 0.38f, 0.72f), legendary, renderers, new Vector3(0f, 0f, -18f));
+            CreatePart("右破晓翼", contents.transform, new Vector3(0.27f, 0.12f, 1.2f),
+                new Vector3(0.12f, 0.38f, 0.72f), legendary, renderers, new Vector3(0f, 0f, 18f));
+            CreatePart("传奇弹匣徽记", contents.transform, new Vector3(0f, -0.52f, 0.55f),
+                new Vector3(0.27f, 0.11f, 0.2f), legendary, renderers, new Vector3(-8f, 0f, 0f));
+            Transform muzzle = contents.transform.Find("枪口");
+            if (muzzle != null)
+            {
+                muzzle.localPosition = new Vector3(0f, 0.05f, 2.6f);
+            }
             PrefabUtility.SaveAsPrefabAsset(contents, GoldenRiflePrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
             return AssetDatabase.LoadAssetAtPath<GameObject>(GoldenRiflePrefabPath);
+        }
+
+        private static void AddRailTeeth(
+            string prefix,
+            Transform parent,
+            float startZ,
+            float y,
+            float width,
+            int count,
+            float spacing,
+            Material material,
+            List<Renderer> renderers)
+        {
+            for (int index = 0; index < count; index++)
+            {
+                CreatePart($"{prefix} {index + 1}", parent,
+                    new Vector3(0f, y, startZ + (index * spacing)),
+                    new Vector3(0.24f, width, 0.055f), material, renderers);
+            }
+        }
+
+        private static void AddScope(
+            string name,
+            Transform parent,
+            Vector3 position,
+            float radius,
+            float length,
+            Material body,
+            Material lens,
+            List<Renderer> renderers)
+        {
+            CreatePart($"{name}底座", parent, position - new Vector3(0f, radius + 0.05f, 0f),
+                new Vector3(0.2f, 0.1f, length * 0.72f), body, renderers);
+            CreateCylinder($"{name}镜身", parent, position, new Vector3(radius, length, radius),
+                body, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder($"{name}物镜", parent, position + new Vector3(0f, 0f, length + 0.015f),
+                new Vector3(radius * 0.82f, 0.025f, radius * 0.82f), lens, renderers, new Vector3(90f, 0f, 0f));
+            CreateCylinder($"{name}调节轮", parent, position + new Vector3(0f, radius * 1.08f, 0f),
+                new Vector3(radius * 0.42f, 0.06f, radius * 0.42f), body, renderers);
         }
 
         private static void BuildAmmoPickup(Material dark, Material gold, Material glow)

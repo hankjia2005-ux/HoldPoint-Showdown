@@ -46,13 +46,11 @@ Unity 工程位于 `UnityProject/HoldPointShowdown`。
 
 ## 分支策略
 
-- `main`：稳定、可演示版本。
-- `develop`：日常集成分支。
-- `codex/feature-*`：功能开发。
-- `codex/fix-*`：缺陷修复。
-- `codex/art-*`：需要独立评审的大型美术导入批次。
+- `main`：新成员直接拉取，可打包、可演示的稳定版本。
+- `develop`：下一版本的日常集成分支。
+- `codex/feature-*`、`codex/fix-*`、`codex/art-*`：单项任务短期分支，合并后删除。
 
-代码、美术、音频的长期分类使用目录，不使用长期资源分支。详细规则见 `Docs/ProjectManagement/BRANCHING.md`。
+代码、美术、音频通过目录分类，不使用长期资源分支，也不保留已经合并的历史任务分支。详细规则和示例见 `Docs/ProjectManagement/BRANCHING.md`。
 
 ## 文档
 

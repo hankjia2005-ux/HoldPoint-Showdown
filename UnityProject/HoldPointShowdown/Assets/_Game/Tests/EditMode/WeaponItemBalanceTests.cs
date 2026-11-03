@@ -4,6 +4,7 @@ using HoldPointShowdown.Data;
 using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace HoldPointShowdown.Tests
@@ -43,6 +44,44 @@ namespace HoldPointShowdown.Tests
             Assert.That(rifle.BodyDps, Is.LessThan(shotgun.BodyDps));
             Assert.That(shotgun.BodyDps, Is.LessThan(golden.BodyDps));
             Assert.That(pistol.IdealArmoredTtk, Is.GreaterThan(shotgun.IdealArmoredTtk));
+        }
+
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab", 15)]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab", 24)]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Rifle.prefab", 24)]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_AutoShotgun.prefab", 22)]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_GoldenRifle.prefab", 28)]
+        public void WeaponArt_HasReadableLowPolySilhouette(string assetPath, int minimumRendererCount)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+
+            Assert.That(prefab, Is.Not.Null, $"武器美术资产不存在：{assetPath}");
+            Assert.That(prefab.GetComponentsInChildren<Renderer>(true).Length,
+                Is.GreaterThanOrEqualTo(minimumRendererCount),
+                $"{prefab.name} 缺少足够的材质分区或轮廓细节");
+            Assert.That(prefab.transform.Find("枪口"), Is.Not.Null,
+                $"{prefab.name} 必须保留枪口挂点，供火焰、音频和弹道共用");
+        }
+
+        [Test]
+        public void WeaponArt_RemainsMobileFriendly()
+        {
+            string[] assetPaths =
+            {
+                "Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab",
+                "Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab",
+                "Assets/_Game/Art/Items/Prefabs/Weapon_Rifle.prefab",
+                "Assets/_Game/Art/Items/Prefabs/Weapon_AutoShotgun.prefab",
+                "Assets/_Game/Art/Items/Prefabs/Weapon_GoldenRifle.prefab"
+            };
+
+            foreach (string assetPath in assetPaths)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                int rendererCount = prefab.GetComponentsInChildren<Renderer>(true).Length;
+                Assert.That(rendererCount, Is.LessThanOrEqualTo(48),
+                    $"{prefab.name} 的独立网格过多，会增加移动端批次和维护成本");
+            }
         }
 
         [Test]
