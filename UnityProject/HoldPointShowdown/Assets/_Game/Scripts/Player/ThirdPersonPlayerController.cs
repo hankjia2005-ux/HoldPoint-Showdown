@@ -44,6 +44,7 @@ namespace HoldPointShowdown.Player
         private Damageable _damageable;
         private CombatantLifecycle _lifecycle;
         private BlockCharacterVisual _characterVisual;
+        private bool _mobileFireWasHeld;
 
         public bool IsCrouching => _isCrouching;
         public bool IsSprinting => _isSprinting;
@@ -191,10 +192,14 @@ namespace HoldPointShowdown.Player
 
             Move();
 
-            if ((Cursor.lockState == CursorLockMode.Locked || MobileInputBridge.IsEnabled)
-                && (_fireAction.IsPressed() || MobileInputBridge.FireHeld))
+            bool mobileFireHeld = MobileInputBridge.FireHeld;
+            bool triggerHeld = _fireAction.IsPressed() || mobileFireHeld;
+            bool triggerPressed = _fireAction.WasPressedThisFrame()
+                || (mobileFireHeld && !_mobileFireWasHeld);
+            _mobileFireWasHeld = mobileFireHeld;
+            if ((Cursor.lockState == CursorLockMode.Locked || MobileInputBridge.IsEnabled) && triggerHeld)
             {
-                _weapon?.TryFire();
+                _weapon?.ProcessTrigger(triggerPressed, triggerHeld);
             }
 
             if (_reloadAction.WasPressedThisFrame() || MobileInputBridge.ConsumeReload())

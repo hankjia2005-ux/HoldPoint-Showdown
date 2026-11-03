@@ -1,4 +1,5 @@
 using System;
+using HoldPointShowdown.Data;
 using HoldPointShowdown.Presentation;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace HoldPointShowdown.Combat
         [SerializeField, Min(1f)] private float _maxHealth = 100f;
         [SerializeField, Min(0f)] private float _maxArmor;
         [SerializeField, Min(0f)] private float _startingArmor;
+        [SerializeField, Range(0f, 0.9f)] private float _armorAbsorptionFraction = 0.25f;
         [SerializeField] private bool _resetAfterDeath = true;
         [SerializeField, Min(0.1f)] private float _resetDelay = 2f;
 
@@ -45,6 +47,24 @@ namespace HoldPointShowdown.Combat
             ResetState();
         }
 
+        public void Configure(
+            GameBalanceConfig balance,
+            bool resetAfterDeath = true)
+        {
+            if (balance == null)
+            {
+                Configure(100f, 50f, resetAfterDeath, 0f);
+                return;
+            }
+
+            _armorAbsorptionFraction = balance.ArmorAbsorptionFraction;
+            Configure(
+                balance.PlayerMaxHealth,
+                balance.PlayerMaxArmor,
+                resetAfterDeath,
+                balance.PlayerStartingArmor);
+        }
+
         public void SetAutoReset(bool enabled, float delay = 2f)
         {
             _resetAfterDeath = enabled;
@@ -74,9 +94,11 @@ namespace HoldPointShowdown.Combat
             }
 
             float healthBefore = CurrentHealth;
-            float armoredPortion = Mathf.Min(CurrentArmor, amount);
-            CurrentArmor -= armoredPortion;
-            float healthDamage = (armoredPortion * 0.75f) + (amount - armoredPortion);
+            float armorAbsorption = CurrentArmor > 0f
+                ? Mathf.Min(CurrentArmor, amount * _armorAbsorptionFraction)
+                : 0f;
+            CurrentArmor -= armorAbsorption;
+            float healthDamage = amount - armorAbsorption;
             CurrentHealth = Mathf.Max(0f, CurrentHealth - healthDamage);
             float appliedDamage = healthBefore - CurrentHealth;
             LastInstigator = instigator;

@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.IO;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.Presentation;
+using HoldPointShowdown.Runtime;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,6 +16,8 @@ namespace HoldPointShowdown.Editor
         public const string ShotgunAssetPath = "Assets/_Game/Data/Weapons/PurpleAutoShotgun.asset";
         public const string GoldenRifleAssetPath = "Assets/_Game/Data/Weapons/GoldenAirdropRifle.asset";
         public const string BalanceAssetPath = "Assets/_Game/Data/GameBalanceConfig.asset";
+        public const string CombatantSetAssetPath = "Assets/_Game/Data/Runtime/CombatantRuntimeSet.asset";
+        public const string CameraChannelAssetPath = "Assets/_Game/Data/Runtime/CameraDirectiveChannel.asset";
 
         public const string PistolPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab";
         public const string SmgPrefabPath = "Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab";
@@ -27,6 +31,7 @@ namespace HoldPointShowdown.Editor
         private const string ItemRoot = "Assets/_Game/Art/Items";
         private const string MaterialRoot = ItemRoot + "/Materials";
         private const string PrefabRoot = ItemRoot + "/Prefabs";
+        private const string MeshRoot = ItemRoot + "/Meshes";
         private const string WeaponDataRoot = "Assets/_Game/Data/Weapons";
 
         [MenuItem("HoldPoint Showdown/Art/Rebuild Items And Weapons")]
@@ -35,7 +40,9 @@ namespace HoldPointShowdown.Editor
             EnsureFolder(ItemRoot);
             EnsureFolder(MaterialRoot);
             EnsureFolder(PrefabRoot);
+            EnsureFolder(MeshRoot);
             EnsureFolder(WeaponDataRoot);
+            EnsureFolder("Assets/_Game/Data/Runtime");
 
             Material gunMetal = GetOrCreateMaterial(MaterialRoot + "/GunMetal.mat", new Color(0.075f, 0.09f, 0.13f), 0.55f, 0.65f);
             Material darkPolymer = GetOrCreateMaterial(MaterialRoot + "/DarkPolymer.mat", new Color(0.035f, 0.055f, 0.08f), 0.2f, 0.05f);
@@ -61,28 +68,35 @@ namespace HoldPointShowdown.Editor
 
             WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(PistolAssetPath);
             pistol.SetBalancedValues("weapon.pistol.common", "白色基础手枪", WeaponArchetype.Pistol, ItemRarity.Common,
-                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 18, 1.4f, 12, 180f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
+                AmmoKind.Light, 22f, 3.2f, 1, 0.8f, 12, 18, 1.4f, 8, 180f, pistolModel,
+                new Color(0.88f, 0.92f, 0.96f), WeaponFireMode.SemiAutomatic);
 
             WeaponConfig smg = GetOrCreateAsset<WeaponConfig>(SmgAssetPath);
             smg.SetBalancedValues("weapon.smg.uncommon", "绿色疾风冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon,
-                AmmoKind.Light, 13f, 10f, 1, 2.15f, 30, 45, 2f, 20, 150f, smgModel, new Color(0.22f, 0.86f, 0.42f));
+                AmmoKind.Light, 11f, 7f, 1, 2.15f, 24, 36, 2f, 12, 150f, smgModel,
+                new Color(0.22f, 0.86f, 0.42f), WeaponFireMode.Automatic);
 
             WeaponConfig rifle = GetOrCreateAsset<WeaponConfig>(RifleAssetPath);
             rifle.SetBalancedValues("weapon.rifle.rare", "蓝色先锋步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare,
-                AmmoKind.Rifle, 22f, 6f, 1, 0.65f, 24, 36, 2.2f, 18, 220f, rifleModel, new Color(0.18f, 0.55f, 1f));
+                AmmoKind.Rifle, 19f, 4f, 1, 0.65f, 21, 32, 2.2f, 11, 220f, rifleModel,
+                new Color(0.18f, 0.55f, 1f), WeaponFireMode.Burst, 3);
 
             WeaponConfig shotgun = GetOrCreateAsset<WeaponConfig>(ShotgunAssetPath);
             shotgun.SetBalancedValues("weapon.shotgun.epic", "紫色风暴连发霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic,
-                AmmoKind.Shell, 7f, 2.5f, 8, 6.4f, 8, 12, 2.6f, 6, 55f, shotgunModel, new Color(0.66f, 0.28f, 1f));
+                AmmoKind.Shell, 6f, 1.5f, 6, 6.4f, 7, 11, 2.6f, 4, 55f, shotgunModel,
+                new Color(0.66f, 0.28f, 1f), WeaponFireMode.Automatic);
 
             WeaponConfig goldenRifle = GetOrCreateAsset<WeaponConfig>(GoldenRifleAssetPath);
             goldenRifle.SetBalancedValues("weapon.rifle.legendary", "金色破晓步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary,
-                AmmoKind.Rifle, 25f, 6.6f, 1, 0.5f, 25, 38, 2.1f, 18, 240f, goldenRifleModel, new Color(1f, 0.7f, 0.08f));
+                AmmoKind.Rifle, 19f, 4.2f, 1, 0.5f, 21, 32, 2.1f, 11, 240f, goldenRifleModel,
+                new Color(1f, 0.7f, 0.08f), WeaponFireMode.Automatic);
 
             GameBalanceConfig balance = GetOrCreateAsset<GameBalanceConfig>(BalanceAssetPath);
             balance.SetDemoValues();
+            CombatantRuntimeSet combatants = GetOrCreateAsset<CombatantRuntimeSet>(CombatantSetAssetPath);
+            CameraDirectiveChannel cameraChannel = GetOrCreateAsset<CameraDirectiveChannel>(CameraChannelAssetPath);
 
-            foreach (Object asset in new Object[] { pistol, smg, rifle, shotgun, goldenRifle, balance })
+            foreach (Object asset in new Object[] { pistol, smg, rifle, shotgun, goldenRifle, balance, combatants, cameraChannel })
             {
                 EditorUtility.SetDirty(asset);
             }
@@ -257,6 +271,7 @@ namespace HoldPointShowdown.Editor
             {
                 muzzle.localPosition = new Vector3(0f, 0.05f, 2.6f);
             }
+            CombineWeaponMeshes(contents, GoldenRiflePrefabPath);
             PrefabUtility.SaveAsPrefabAsset(contents, GoldenRiflePrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
             return AssetDatabase.LoadAssetAtPath<GameObject>(GoldenRiflePrefabPath);
@@ -382,9 +397,75 @@ namespace HoldPointShowdown.Editor
 
         private static GameObject SavePrefab(GameObject root, string path)
         {
+            if (root.GetComponent<WeaponModelBinding>() != null)
+            {
+                CombineWeaponMeshes(root, path);
+            }
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
             return prefab;
+        }
+
+        private static void CombineWeaponMeshes(GameObject root, string prefabPath)
+        {
+            Dictionary<Material, List<MeshFilter>> groups = new();
+            foreach (MeshFilter filter in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                MeshRenderer renderer = filter.GetComponent<MeshRenderer>();
+                if (renderer == null || filter.sharedMesh == null || renderer.sharedMaterial == null)
+                {
+                    continue;
+                }
+
+                if (!groups.TryGetValue(renderer.sharedMaterial, out List<MeshFilter> filters))
+                {
+                    filters = new List<MeshFilter>();
+                    groups.Add(renderer.sharedMaterial, filters);
+                }
+                filters.Add(filter);
+            }
+
+            string prefabName = Path.GetFileNameWithoutExtension(prefabPath);
+            foreach (KeyValuePair<Material, List<MeshFilter>> group in groups)
+            {
+                CombineInstance[] combines = new CombineInstance[group.Value.Count];
+                for (int index = 0; index < group.Value.Count; index++)
+                {
+                    MeshFilter filter = group.Value[index];
+                    combines[index] = new CombineInstance
+                    {
+                        mesh = filter.sharedMesh,
+                        transform = root.transform.worldToLocalMatrix * filter.transform.localToWorldMatrix
+                    };
+                }
+
+                Mesh mesh = new()
+                {
+                    name = $"{prefabName}_{group.Key.name}",
+                    indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
+                };
+                mesh.CombineMeshes(combines, true, true, false);
+                mesh.RecalculateBounds();
+
+                string safeMaterialName = group.Key.name.Replace(' ', '_');
+                string meshPath = $"{MeshRoot}/{prefabName}_{safeMaterialName}.asset";
+                AssetDatabase.DeleteAsset(meshPath);
+                AssetDatabase.CreateAsset(mesh, meshPath);
+
+                GameObject combined = new($"合批_{group.Key.name}");
+                combined.transform.SetParent(root.transform, false);
+                combined.AddComponent<MeshFilter>().sharedMesh = mesh;
+                MeshRenderer renderer = combined.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = group.Key;
+            }
+
+            foreach (List<MeshFilter> filters in groups.Values)
+            {
+                foreach (MeshFilter filter in filters)
+                {
+                    Object.DestroyImmediate(filter.gameObject);
+                }
+            }
         }
 
         private static Material GetOrCreateMaterial(string path, Color color, float smoothness, float metallic)
@@ -399,6 +480,7 @@ namespace HoldPointShowdown.Editor
             material.SetColor("_BaseColor", color);
             material.SetFloat("_Smoothness", smoothness);
             material.SetFloat("_Metallic", metallic);
+            material.enableInstancing = true;
             EditorUtility.SetDirty(material);
             return material;
         }

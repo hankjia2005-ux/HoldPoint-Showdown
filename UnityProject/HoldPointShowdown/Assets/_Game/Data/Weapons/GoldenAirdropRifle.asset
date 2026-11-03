@@ -17,14 +17,16 @@ MonoBehaviour:
   _archetype: 2
   _rarity: 4
   _ammoKind: 1
-  _damage: 25
-  _shotsPerSecond: 6.6
+  _damage: 19
+  _shotsPerSecond: 4.2
   _pellets: 1
   _spreadDegrees: 0.5
   _range: 240
-  _magazineSize: 25
-  _startingReserveAmmo: 38
+  _fireMode: 1
+  _burstCount: 3
+  _magazineSize: 21
+  _startingReserveAmmo: 32
   _reloadSeconds: 2.1
-  _ammoPerPickup: 18
+  _ammoPerPickup: 11
   _modelPrefab: {fileID: 3952713644575403548, guid: 238345074043aa246b84ff0e26531a75, type: 3}
   _rarityColor: {r: 1, g: 0.7, b: 0.08, a: 1}

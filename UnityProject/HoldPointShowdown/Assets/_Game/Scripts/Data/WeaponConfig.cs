@@ -20,6 +20,8 @@ namespace HoldPointShowdown.Data
         [SerializeField, Min(1f)] private float _range = 80f;
 
         [Header("Handling")]
+        [SerializeField] private WeaponFireMode _fireMode = WeaponFireMode.SemiAutomatic;
+        [SerializeField, Range(2, 5)] private int _burstCount = 3;
         [SerializeField, Min(1)] private int _magazineSize = 12;
         [SerializeField, Min(0)] private int _startingReserveAmmo = 36;
         [SerializeField, Min(0.1f)] private float _reloadSeconds = 1.4f;
@@ -38,6 +40,8 @@ namespace HoldPointShowdown.Data
         public float ShotsPerSecond => _shotsPerSecond;
         public int Pellets => _pellets;
         public float SpreadDegrees => _spreadDegrees;
+        public WeaponFireMode FireMode => _fireMode;
+        public int BurstCount => _burstCount;
         public int MagazineSize => _magazineSize;
         public int StartingReserveAmmo => _startingReserveAmmo;
         public float ReloadSeconds => _reloadSeconds;
@@ -91,7 +95,9 @@ namespace HoldPointShowdown.Data
             int ammoPerPickup,
             float range,
             GameObject modelPrefab,
-            Color rarityColor)
+            Color rarityColor,
+            WeaponFireMode fireMode = WeaponFireMode.SemiAutomatic,
+            int burstCount = 3)
         {
             _itemId = string.IsNullOrWhiteSpace(itemId) ? name : itemId;
             _displayName = string.IsNullOrWhiteSpace(displayName) ? name : displayName;
@@ -102,6 +108,8 @@ namespace HoldPointShowdown.Data
             _shotsPerSecond = Mathf.Max(0.1f, shotsPerSecond);
             _pellets = Mathf.Max(1, pellets);
             _spreadDegrees = Mathf.Clamp(spreadDegrees, 0f, 12f);
+            _fireMode = fireMode;
+            _burstCount = Mathf.Clamp(burstCount, 2, 5);
             _magazineSize = Mathf.Max(1, magazineSize);
             _startingReserveAmmo = Mathf.Max(0, startingReserveAmmo);
             _reloadSeconds = Mathf.Max(0.1f, reloadSeconds);

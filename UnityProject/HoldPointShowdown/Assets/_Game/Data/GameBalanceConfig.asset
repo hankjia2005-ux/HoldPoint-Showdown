@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e91978e9f5a16524d9ee25f3b7c3b551, type: 3}
   m_Name: GameBalanceConfig
   m_EditorClassIdentifier: HoldPointShowdown.Runtime::HoldPointShowdown.Data.GameBalanceConfig
+  _playerMaxHealth: 100
+  _playerMaxArmor: 50
+  _playerStartingArmor: 0
+  _armorAbsorptionFraction: 0.25
   _backpackSlots: 12
   _weaponSlotCost: 3
   _maxCarriedWeapons: 2
@@ -20,3 +24,8 @@ MonoBehaviour:
   _armorPlateRestore: 30
   _pickupRespawnSeconds: 22
   _pickupRadius: 1.35
+  _aiDetectionRange: 72
+  _aiAttackRange: 42
+  _aiMinimumSpread: 1.4
+  _aiMaximumSpread: 6.5
+  _aiDamageScale: 0.75

@@ -1,6 +1,7 @@
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Core;
 using HoldPointShowdown.GameFlow;
+using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -13,6 +14,7 @@ namespace HoldPointShowdown.UI
         [SerializeField] private PrototypeHitscanWeapon _weapon;
         [SerializeField] private Damageable _playerDamageable;
         [SerializeField] private PrototypeInventory _inventory;
+        [SerializeField] private StrategicHoldPoint _holdPoint;
 
         private GUIStyle _panelStyle;
         private GUIStyle _smallStyle;
@@ -41,12 +43,14 @@ namespace HoldPointShowdown.UI
             MatchPhaseController match,
             PrototypeHitscanWeapon weapon,
             Damageable playerDamageable,
-            PrototypeInventory inventory)
+            PrototypeInventory inventory,
+            StrategicHoldPoint holdPoint = null)
         {
             _match = match;
             _weapon = weapon;
             _playerDamageable = playerDamageable;
             _inventory = inventory;
+            _holdPoint = holdPoint;
         }
 
         private void OnGUI()
@@ -60,6 +64,7 @@ namespace HoldPointShowdown.UI
             float height = Screen.height / scale;
 
             DrawPhaseBanner(width);
+            DrawHoldPoint(width);
             DrawPlayerStatus(height);
             DrawAmmo(width, height);
             DrawCrosshair(width, height);
@@ -91,13 +96,16 @@ namespace HoldPointShowdown.UI
             int seconds = Mathf.CeilToInt(remaining % 60f);
             int blue = _match != null ? _match.GetRemainingTeamMembers(TeamId.Blue) : 0;
             int red = _match != null ? _match.GetRemainingTeamMembers(TeamId.Red) : 0;
+            string roster = _match != null && _match.CurrentPhase == MatchPhase.FinalBattle
+                ? $"终局存活  蓝 {blue} : {red} 红"
+                : $"阵容  蓝方 {_match?.GetTeamSize(TeamId.Blue) ?? 0} 人 / 红方 {_match?.GetTeamSize(TeamId.Red) ?? 0} 人";
 
             Rect panel = new((width * 0.5f) - 170f, 18f, 340f, 70f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
             GUI.Label(new Rect(panel.x, panel.y + 9f, panel.width, 28f), phase, _phaseStyle);
             GUI.Label(
                 new Rect(panel.x, panel.y + 38f, panel.width, 22f),
-                $"本阶段剩余 {minutes:00}:{seconds:00}   |   蓝 {blue} : {red} 红",
+                $"本阶段剩余 {minutes:00}:{seconds:00}   |   {roster}",
                 _smallStyle);
         }
 
@@ -122,7 +130,7 @@ namespace HoldPointShowdown.UI
             string state = "状态：战斗中";
             if (player != null && player.IsEliminated)
             {
-                state = "状态：永久出局";
+                state = "状态：永久出局 · 正在观战";
             }
             else if (player != null && player.IsWaitingToRespawn)
             {
@@ -155,6 +163,33 @@ namespace HoldPointShowdown.UI
                 ? $"背包 {_inventory.UsedSlots}/{_inventory.Capacity}   弹{_inventory.AmmoPacks}  医{_inventory.Medkits}  甲{_inventory.ArmorPlates}"
                 : "背包 --";
             GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 208f, 20f), supplies, _smallStyle);
+        }
+
+        private void DrawHoldPoint(float width)
+        {
+            if (_holdPoint == null || !_holdPoint.IsActive)
+            {
+                return;
+            }
+
+            string owner = _holdPoint.ControllingTeam switch
+            {
+                TeamId.Blue => "蓝方控制",
+                TeamId.Red => "红方控制",
+                _ => "争夺中"
+            };
+            if (_holdPoint.IsContested)
+            {
+                owner = "双方交火 · 进度暂停";
+            }
+
+            float normalized = (_holdPoint.SignedProgress + 1f) * 0.5f;
+            Rect panel = new((width * 0.5f) - 170f, 94f, 340f, 48f);
+            GUI.Box(panel, GUIContent.none, _panelStyle);
+            GUI.DrawTexture(new Rect(panel.x + 16f, panel.y + 28f, 308f, 7f), _darkTexture);
+            GUI.DrawTexture(new Rect(panel.x + 16f, panel.y + 28f, 308f * normalized, 7f), _blueTexture);
+            GUI.Label(new Rect(panel.x, panel.y + 4f, panel.width, 22f),
+                $"中央据点：{owner}  蓝{_holdPoint.BlueOccupants}/红{_holdPoint.RedOccupants}", _smallStyle);
         }
 
         private void DrawMatchMessage(float width)

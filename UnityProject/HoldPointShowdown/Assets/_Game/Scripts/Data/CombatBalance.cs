@@ -6,8 +6,9 @@ namespace HoldPointShowdown.Data
     {
         public const float StandardHealth = 100f;
         public const float StandardArmor = 50f;
-        // 50 armor points cover 50 incoming damage at 25% mitigation, adding 12.5 effective health.
-        public const float StandardEffectiveHealth = StandardHealth + (StandardArmor * 0.25f);
+        public const float ArmorAbsorptionFraction = 0.25f;
+        // Armor takes 25% of each hit while health takes 75%. With 50 armor, health is the limiting pool.
+        public const float StandardEffectiveHealth = StandardHealth / (1f - ArmorAbsorptionFraction);
 
         public static float CalculateBodyDps(WeaponConfig weapon)
         {
@@ -44,9 +45,12 @@ namespace HoldPointShowdown.Data
 
             float dps = CalculateBodyDps(weapon);
             float ttk = CalculateIdealTimeToEliminate(weapon);
-            // The one-per-match legendary airdrop intentionally enters the 150-185 DPS comeback band.
-            float minimumTtk = weapon.Rarity == ItemRarity.Legendary ? 0.55f : 0.75f;
-            return dps >= 70f && dps <= 185f && ttk >= minimumTtk && ttk <= 2.25f;
+            float unarmoredTtk = CalculateIdealTimeToEliminate(weapon, StandardHealth);
+            float minimumTtk = weapon.Rarity == ItemRarity.Legendary ? 1.15f : 1.2f;
+            return dps >= 30f && dps <= 95f
+                && unarmoredTtk >= minimumTtk
+                && ttk >= minimumTtk
+                && ttk <= 3f;
         }
     }
 }

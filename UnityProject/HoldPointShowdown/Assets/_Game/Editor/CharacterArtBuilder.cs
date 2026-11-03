@@ -153,6 +153,7 @@ namespace HoldPointShowdown.Editor
 
             material.SetColor("_BaseColor", color);
             material.SetFloat("_Smoothness", 0.18f);
+            material.enableInstancing = true;
             EditorUtility.SetDirty(material);
             return material;
         }

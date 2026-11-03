@@ -45,6 +45,19 @@ namespace HoldPointShowdown.Gameplay
         public int Medkits => _medkits;
         public int ArmorPlates => _armorPlates;
         public int StoredWeaponCount => _storedWeapons.Count;
+        public TeamId Team => _team;
+
+        public int AddSupply(SupplyKind kind, int amount)
+        {
+            int before = GetStock(kind);
+            int after = Mathf.Clamp(before + Mathf.Max(0, amount), 0, _maxPerKind);
+            SetStock(kind, after);
+            if (after > before)
+            {
+                Flash(new Color(1f, 0.78f, 0.18f));
+            }
+            return after - before;
+        }
 
         public void Configure(
             TeamId team,

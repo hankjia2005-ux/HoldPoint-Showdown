@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using HoldPointShowdown.Presentation;
 using HoldPointShowdown.UI;
+using HoldPointShowdown.Runtime;
 
 namespace HoldPointShowdown.Player
 {
@@ -18,6 +19,7 @@ namespace HoldPointShowdown.Player
         [SerializeField, Min(0f)] private float _collisionRadius = 0.34f;
         [SerializeField, Min(0.1f)] private float _minimumObstacleDistance = 0.9f;
         [SerializeField] private LayerMask _collisionMask = Physics.DefaultRaycastLayers;
+        [SerializeField] private CameraDirectiveChannel _directiveChannel;
 
         [Header("Perspective")]
         [SerializeField] private Vector3 _firstPersonOffset = new(0f, 2.28f, 0.12f);
@@ -42,14 +44,16 @@ namespace HoldPointShowdown.Player
         private Renderer[] _localBodyRenderers;
         private Transform _deathFocusTarget;
         private float _deathFocusUntil;
+        private Transform _spectateTarget;
 
         public float CurrentDistance => _currentDistance;
         public float TargetDistance => _targetDistance;
         public Vector2 LookAngles => new(_yaw, _pitch);
         public bool IsFirstPerson => _isFirstPerson;
 
-        public void Configure(Transform target)
+        public void Configure(Transform target, CameraDirectiveChannel directiveChannel = null)
         {
+            SetDirectiveChannel(directiveChannel);
             _target = target;
             _targetOffset = new Vector3(0f, 1.6f, 0f);
             _distance = 9f;
@@ -97,6 +101,27 @@ namespace HoldPointShowdown.Player
             _deathFocusUntil = 0f;
         }
 
+        public void BeginSpectating(Transform target)
+        {
+            _spectateTarget = target;
+            SetFirstPerson(false);
+        }
+
+        private void SetDirectiveChannel(CameraDirectiveChannel channel)
+        {
+            if (_directiveChannel != null)
+            {
+                _directiveChannel.Raised -= HandleCameraDirective;
+            }
+
+            _directiveChannel = channel;
+            if (_directiveChannel != null && isActiveAndEnabled)
+            {
+                _directiveChannel.Raised -= HandleCameraDirective;
+                _directiveChannel.Raised += HandleCameraDirective;
+            }
+        }
+
         public void ApplyLookDelta(Vector2 lookDelta, bool mouseInput)
         {
             float sensitivity = mouseInput
@@ -126,8 +151,22 @@ namespace HoldPointShowdown.Player
             ResetDistance();
         }
 
+        private void OnEnable()
+        {
+            if (_directiveChannel != null)
+            {
+                _directiveChannel.Raised -= HandleCameraDirective;
+                _directiveChannel.Raised += HandleCameraDirective;
+            }
+        }
+
         private void OnDisable()
         {
+            if (_directiveChannel != null)
+            {
+                _directiveChannel.Raised -= HandleCameraDirective;
+            }
+
             if (_localBodyRenderers == null)
             {
                 return;
@@ -144,7 +183,8 @@ namespace HoldPointShowdown.Player
 
         private void LateUpdate()
         {
-            if (_target == null)
+            Transform followTarget = _spectateTarget != null ? _spectateTarget : _target;
+            if (followTarget == null)
             {
                 return;
             }
@@ -171,7 +211,7 @@ namespace HoldPointShowdown.Player
             Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
             if (_isFirstPerson)
             {
-                Vector3 firstPersonPosition = _target.position
+                Vector3 firstPersonPosition = followTarget.position
                     + (Vector3.up * _firstPersonOffset.y)
                     + (rotation * new Vector3(_firstPersonOffset.x, 0f, _firstPersonOffset.z));
                 transform.SetPositionAndRotation(firstPersonPosition, rotation);
@@ -186,7 +226,7 @@ namespace HoldPointShowdown.Player
                 Mathf.Infinity,
                 Time.unscaledDeltaTime);
 
-            Vector3 pivot = _target.position + _targetOffset;
+            Vector3 pivot = followTarget.position + _targetOffset;
             Vector3 desiredPosition = pivot + (rotation * new Vector3(
                 _shoulderOffset,
                 0f,
@@ -287,6 +327,25 @@ namespace HoldPointShowdown.Player
             _targetDistance = Mathf.Clamp(_distance, _zoomLimits.x, _zoomLimits.y);
             _currentDistance = _targetDistance;
             _zoomVelocity = 0f;
+        }
+
+        private void HandleCameraDirective(CameraDirective directive)
+        {
+            switch (directive.Type)
+            {
+                case CameraDirectiveType.DeathFocus:
+                    BeginDeathFocus(directive.Target, directive.Duration);
+                    break;
+                case CameraDirectiveType.Spectate:
+                    BeginSpectating(directive.Target);
+                    break;
+                case CameraDirectiveType.ReturnToPlayer:
+                    _target = directive.Target != null ? directive.Target : _target;
+                    _spectateTarget = null;
+                    EndDeathFocus();
+                    CacheLocalBodyRenderers();
+                    break;
+            }
         }
     }
 }

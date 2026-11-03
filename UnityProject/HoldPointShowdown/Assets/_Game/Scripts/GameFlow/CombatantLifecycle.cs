@@ -4,6 +4,7 @@ using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.Player;
 using HoldPointShowdown.Presentation;
+using HoldPointShowdown.Runtime;
 using UnityEngine;
 
 namespace HoldPointShowdown.GameFlow
@@ -22,6 +23,7 @@ namespace HoldPointShowdown.GameFlow
         [SerializeField] private Vector3 _spawnPosition;
         [SerializeField] private Quaternion _spawnRotation = Quaternion.identity;
         [SerializeField] private bool _hasConfiguredSpawn;
+        [SerializeField] private CameraDirectiveChannel _cameraDirectives;
 
         private CharacterController _characterController;
         private Coroutine _respawnRoutine;
@@ -47,13 +49,15 @@ namespace HoldPointShowdown.GameFlow
             WeaponConfig starterWeapon,
             PrototypeInventory inventory,
             WeaponLoadout loadout,
-            bool isHumanPlayer)
+            bool isHumanPlayer,
+            CameraDirectiveChannel cameraDirectives = null)
         {
             _match = match;
             _starterWeapon = starterWeapon;
             _inventory = inventory;
             _loadout = loadout;
             _isHumanPlayer = isHumanPlayer;
+            _cameraDirectives = cameraDirectives;
             _spawnPosition = transform.position;
             _spawnRotation = transform.rotation;
             _hasConfiguredSpawn = true;
@@ -109,6 +113,10 @@ namespace HoldPointShowdown.GameFlow
             FinalLivesRemaining = 0;
             RespawnAt = 0f;
             SetCollisionEnabled(false);
+            if (_isHumanPlayer)
+            {
+                _cameraDirectives?.RaiseSpectate(_match != null ? _match.GetSpectatorTarget(Team) : null);
+            }
         }
 
         public void StopForMatchEnd()
@@ -164,9 +172,9 @@ namespace HoldPointShowdown.GameFlow
             _combatFeedback?.CaptureCorpse(deathPosition);
             if (_isHumanPlayer && _damageable != null && _damageable.LastInstigator != null)
             {
-                Camera.main?.GetComponent<ThirdPersonCameraRig>()?.BeginDeathFocus(
+                _cameraDirectives?.RaiseDeathFocus(
                     _damageable.LastInstigator.transform,
-                    Mathf.Max(0.65f, _match != null ? _match.Rules.GetRespawnDelay(_match.CurrentPhase) : 0.75f));
+                    Mathf.Clamp(_match != null ? _match.Rules.GetRespawnDelay(_match.CurrentPhase) : 0.75f, 0.65f, 1.6f));
             }
             _inventory?.DropAllOnDeath(deathPosition);
             _loadout?.ResetToStarter();
@@ -217,7 +225,7 @@ namespace HoldPointShowdown.GameFlow
             _audioFeedback?.PlayRespawn();
             if (_isHumanPlayer)
             {
-                Camera.main?.GetComponent<ThirdPersonCameraRig>()?.EndDeathFocus();
+                _cameraDirectives?.RaiseReturnToPlayer(transform);
             }
         }
 

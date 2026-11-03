@@ -8,8 +8,10 @@ using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using HoldPointShowdown.Presentation;
+using HoldPointShowdown.Runtime;
 using HoldPointShowdown.UI;
 using UnityEditor;
+using UnityEditor.Rendering;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -81,6 +83,26 @@ namespace HoldPointShowdown.Editor
         ConfigureBuildScenes();
         AssetDatabase.SaveAssets();
         Debug.Log("中文主菜单已重建并打开。");
+    }
+
+    [MenuItem("HoldPoint Showdown/Optimize/Refresh Arena Rendering")]
+    public static void BakeArenaOcclusion()
+    {
+        SerializedObject graphicsSettings = new(UnityEngine.Rendering.GraphicsSettings.GetGraphicsSettings());
+        SerializedProperty brgStripping = graphicsSettings.FindProperty("m_BrgStripping");
+        if (brgStripping != null)
+        {
+            brgStripping.enumValueIndex = (int)BatchRendererGroupStrippingMode.KeepAll;
+            graphicsSettings.ApplyModifiedPropertiesWithoutUndo();
+        }
+        string path = $"{ScenesRoot}/ArenaTown.unity";
+        Scene scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+        OptimizeArenaRendering(scene);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene, path);
+        StaticOcclusionCulling.Clear();
+        EditorSceneManager.SaveScene(scene, path);
+        Debug.Log("ArenaTown 渲染设置已刷新：移动端静态合批，PC 端 GPU Resident Drawer / GPU Occlusion。");
     }
 
     private static void BuildProjectFoundation(bool overwriteScenes)
@@ -230,6 +252,7 @@ namespace HoldPointShowdown.Editor
         Material neutral,
         Material dark)
     {
+        GameBalanceConfig balance = AssetDatabase.LoadAssetAtPath<GameBalanceConfig>(ItemArtBuilder.BalanceAssetPath);
         CreateLighting();
         CreatePrimitive("Floor", PrimitiveType.Cube, new Vector3(0f, -0.5f, 0f), new Vector3(24f, 1f, 24f), neutral);
         CreatePrimitive("Backstop", PrimitiveType.Cube, new Vector3(0f, 2f, 10f), new Vector3(24f, 5f, 0.5f), dark);
@@ -251,7 +274,7 @@ namespace HoldPointShowdown.Editor
         characterController.center = Vector3.zero;
 
         Damageable playerDamageable = player.AddComponent<Damageable>();
-        playerDamageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor);
+        playerDamageable.Configure(balance);
 
         Camera camera = CreateCamera(new Vector3(0f, 3.5f, -10f), Quaternion.identity, true);
         ThirdPersonCameraRig cameraRig = camera.GetComponent<ThirdPersonCameraRig>();
@@ -316,6 +339,8 @@ namespace HoldPointShowdown.Editor
         ItemArtBuilder.BuildAssets();
 
         GameBalanceConfig balance = AssetDatabase.LoadAssetAtPath<GameBalanceConfig>(ItemArtBuilder.BalanceAssetPath);
+        CombatantRuntimeSet combatants = AssetDatabase.LoadAssetAtPath<CombatantRuntimeSet>(ItemArtBuilder.CombatantSetAssetPath);
+        CameraDirectiveChannel cameraChannel = AssetDatabase.LoadAssetAtPath<CameraDirectiveChannel>(ItemArtBuilder.CameraChannelAssetPath);
         WeaponConfig smg = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.SmgAssetPath);
         WeaponConfig rifle = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.RifleAssetPath);
         WeaponConfig shotgun = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.ShotgunAssetPath);
@@ -372,7 +397,7 @@ namespace HoldPointShowdown.Editor
 
         GameObject flowObject = new("Match Flow");
         MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
-        match.Configure(rules);
+        match.Configure(rules, combatants);
 
         GameObject blueChest = CreateTeamBase("Blue Base", -58f, true, TeamId.Blue, match,
             architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
@@ -416,13 +441,13 @@ namespace HoldPointShowdown.Editor
         CreateSupplyPickup("南侧弹药", new Vector3(21f, 1f, -47f), props.transform,
             SupplyKind.AmmoPack, ItemArtBuilder.AmmoPrefabPath, balance, yellow);
 
-        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.85f, -52.6f), rules);
+        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.85f, -52.6f), balance, combatants);
         Camera camera = CreateCamera(new Vector3(0f, 4.5f, -67f), Quaternion.identity, true);
         camera.backgroundColor = new Color(0.43f, 0.72f, 0.91f);
         camera.fieldOfView = 70f;
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 280f;
-        camera.GetComponent<ThirdPersonCameraRig>().Configure(player.transform);
+        camera.GetComponent<ThirdPersonCameraRig>().Configure(player.transform, cameraChannel);
 
         PrototypeHitscanWeapon weapon = player.AddComponent<PrototypeHitscanWeapon>();
         weapon.Configure(pistol, camera);
@@ -441,21 +466,26 @@ namespace HoldPointShowdown.Editor
         PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
         inventory.Configure(weapon, playerDamageable, loadout, balance);
         CombatantLifecycle playerLifecycle = player.AddComponent<CombatantLifecycle>();
-        playerLifecycle.Configure(match, pistol, inventory, loadout, true);
+        playerLifecycle.Configure(match, pistol, inventory, loadout, true, cameraChannel);
 
-        blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
-        redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
+        SharedSupplyChest blueSupplyChest = blueChest.AddComponent<SharedSupplyChest>();
+        blueSupplyChest.Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
+        SharedSupplyChest redSupplyChest = redChest.AddComponent<SharedSupplyChest>();
+        redSupplyChest.Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
+
+        StrategicHoldPoint holdPoint = CreateStrategicHoldPoint(
+            props.transform, match, combatants, blueSupplyChest, redSupplyChest, dark, teal, yellow);
 
         CreateBot("蓝方支援", new Vector3(-3.6f, 0.85f, -53.4f), props.transform,
-            rules, match, TeamId.Blue, 0f, rifle);
+            balance, combatants, cameraChannel, match, holdPoint, TeamId.Blue, rifle);
         CreateBot("红方突击甲", new Vector3(-3.6f, 0.85f, 53.4f), props.transform,
-            rules, match, TeamId.Red, 25f, rifle);
+            balance, combatants, cameraChannel, match, holdPoint, TeamId.Red, rifle);
         CreateBot("红方突击乙", new Vector3(3.6f, 0.85f, 53.4f), props.transform,
-            rules, match, TeamId.Red, 0f, smg);
+            balance, combatants, cameraChannel, match, holdPoint, TeamId.Red, smg);
 
         GameObject hudObject = new("Showcase HUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
-        hud.Configure(match, weapon, playerDamageable, inventory);
+        hud.Configure(match, weapon, playerDamageable, inventory, holdPoint);
         hudObject.AddComponent<DamageIndicator>().Configure(playerDamageable, camera);
         hudObject.AddComponent<PauseMenuController>().Configure(match);
         hudObject.AddComponent<MobileControlsOverlay>();
@@ -988,11 +1018,37 @@ namespace HoldPointShowdown.Editor
         return instance;
     }
 
-    private static GameObject CreateShowcasePlayer(Vector3 position, GameRuleConfig rules)
+    private static StrategicHoldPoint CreateStrategicHoldPoint(
+        Transform parent,
+        MatchPhaseController match,
+        CombatantRuntimeSet combatants,
+        SharedSupplyChest blueChest,
+        SharedSupplyChest redChest,
+        Material dark,
+        Material teal,
+        Material glow)
+    {
+        GameObject root = new("中央战略据点");
+        root.transform.SetParent(parent, false);
+        CreateBlock("据点外环", root.transform, new Vector3(0f, 0.26f, 0f),
+            new Vector3(8f, 0.08f, 8f), dark, false, PrimitiveType.Cylinder);
+        CreateBlock("据点能量环", root.transform, new Vector3(0f, 0.35f, 0f),
+            new Vector3(6.8f, 0.05f, 6.8f), teal, false, PrimitiveType.Cylinder);
+        CreateBlock("据点信标", root.transform, new Vector3(0f, 1.35f, 0f),
+            new Vector3(0.45f, 1.2f, 0.45f), glow, false, PrimitiveType.Cylinder);
+        StrategicHoldPoint holdPoint = root.AddComponent<StrategicHoldPoint>();
+        holdPoint.Configure(match, combatants, blueChest, redChest);
+        return holdPoint;
+    }
+
+    private static GameObject CreateShowcasePlayer(
+        Vector3 position,
+        GameBalanceConfig balance,
+        CombatantRuntimeSet combatants)
     {
         GameObject player = new("蓝方玩家");
         player.transform.position = position;
-        player.layer = LayerMask.NameToLayer("Ignore Raycast");
+        player.layer = 0;
         player.AddComponent<AudioFeedback>();
 
         CharacterController characterController = player.AddComponent<CharacterController>();
@@ -1001,12 +1057,12 @@ namespace HoldPointShowdown.Editor
         characterController.center = new Vector3(0f, 1.35f, 0f);
 
         Damageable damageable = player.AddComponent<Damageable>();
-        damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, 0f);
+        damageable.Configure(balance, false);
         player.AddComponent<CombatantStats>();
-        player.AddComponent<TeamMember>().Configure(TeamId.Blue);
+        player.AddComponent<TeamMember>().Configure(TeamId.Blue, combatants);
 
         GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.BluePrefabPath, player.transform);
-        SetLayerRecursively(visual, player.layer);
+        SetLayerRecursively(visual, LayerMask.NameToLayer("Ignore Raycast"));
         visual.GetComponent<CharacterCombatFeedback>()?.Bind(damageable);
 
         return player;
@@ -1016,10 +1072,12 @@ namespace HoldPointShowdown.Editor
         string name,
         Vector3 position,
         Transform parent,
-        GameRuleConfig rules,
+        GameBalanceConfig balance,
+        CombatantRuntimeSet combatants,
+        CameraDirectiveChannel cameraChannel,
         MatchPhaseController match,
+        StrategicHoldPoint holdPoint,
         TeamId team,
-        float startingArmor,
         WeaponConfig weaponConfig)
     {
         GameObject target = new(name);
@@ -1035,9 +1093,9 @@ namespace HoldPointShowdown.Editor
         characterController.center = new Vector3(0f, 1.35f, 0f);
 
         Damageable damageable = target.AddComponent<Damageable>();
-        damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, startingArmor);
+        damageable.Configure(balance, false);
         target.AddComponent<CombatantStats>();
-        target.AddComponent<TeamMember>().Configure(team);
+        target.AddComponent<TeamMember>().Configure(team, combatants);
 
         string visualPath = team == TeamId.Blue ? CharacterArtBuilder.BluePrefabPath : CharacterArtBuilder.RedPrefabPath;
         GameObject visual = InstantiateCharacterVisual(visualPath, target.transform);
@@ -1060,9 +1118,9 @@ namespace HoldPointShowdown.Editor
         PrototypeWeaponEffects effects = target.AddComponent<PrototypeWeaponEffects>();
         effects.Configure(null, muzzle);
         PrototypeEnemyAI ai = target.AddComponent<PrototypeEnemyAI>();
-        ai.Configure(muzzle);
+        ai.Configure(muzzle, combatants, balance, weaponConfig, match, holdPoint);
         CombatantLifecycle lifecycle = target.AddComponent<CombatantLifecycle>();
-        lifecycle.Configure(match, weaponConfig, null, null, false);
+        lifecycle.Configure(match, weaponConfig, null, null, false, cameraChannel);
         return target;
     }
 
@@ -1177,6 +1235,10 @@ namespace HoldPointShowdown.Editor
 
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         populate(scene);
+        if (sceneName == "ArenaTown")
+        {
+            OptimizeArenaRendering(scene);
+        }
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, path);
     }
@@ -1199,6 +1261,8 @@ namespace HoldPointShowdown.Editor
         Material existing = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (existing != null)
         {
+            existing.enableInstancing = true;
+            EditorUtility.SetDirty(existing);
             return existing;
         }
 
@@ -1207,8 +1271,49 @@ namespace HoldPointShowdown.Editor
         {
             color = color
         };
+        material.enableInstancing = true;
         AssetDatabase.CreateAsset(material, path);
         return material;
+    }
+
+    private static void OptimizeArenaRendering(Scene scene)
+    {
+        StaticEditorFlags baseFlags = StaticEditorFlags.BatchingStatic
+            | StaticEditorFlags.OccludeeStatic
+            | StaticEditorFlags.ReflectionProbeStatic;
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            if (root.name != "Environment" && root.name != "Architecture")
+            {
+                continue;
+            }
+
+            foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (renderer.GetComponentInParent<LootCrate>() != null)
+                {
+                    continue;
+                }
+
+                StaticEditorFlags flags = baseFlags;
+                if (renderer.bounds.size.sqrMagnitude >= 16f)
+                {
+                    flags |= StaticEditorFlags.OccluderStatic;
+                }
+                GameObjectUtility.SetStaticEditorFlags(renderer.gameObject, flags);
+
+                if (renderer.bounds.size.sqrMagnitude < 0.16f)
+                {
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            }
+        }
+
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            mainCamera.useOcclusionCulling = true;
+        }
     }
 
     private static Material GetOrCreateEmissiveMaterial(string path, Color color, Color emission)

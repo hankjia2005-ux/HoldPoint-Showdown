@@ -32,6 +32,7 @@ namespace HoldPointShowdown.Combat
         private float _nextShotAt;
         private float _reloadCompleteAt;
         private int _pendingReloadAmount;
+        private int _burstShotsRemaining;
         private readonly RaycastHit[] _hitBuffer = new RaycastHit[32];
         private AudioFeedback _audioFeedback;
 
@@ -56,6 +57,7 @@ namespace HoldPointShowdown.Combat
             MagazineAmmo = config == null ? 0 : Mathf.Clamp(magazineAmmo, 0, config.MagazineSize);
             ReserveAmmo = Mathf.Max(0, reserveAmmo);
             _nextShotAt = Mathf.Min(_nextShotAt, Time.time + 0.12f);
+            _burstShotsRemaining = 0;
             ConfigChanged?.Invoke(_config);
             AmmoChanged?.Invoke();
         }
@@ -90,6 +92,28 @@ namespace HoldPointShowdown.Combat
             }
 
             return true;
+        }
+
+        public bool ProcessTrigger(bool pressedThisFrame, bool held)
+        {
+            if (_config == null)
+            {
+                return false;
+            }
+
+            switch (_config.FireMode)
+            {
+                case WeaponFireMode.Automatic:
+                    return held && TryFire();
+                case WeaponFireMode.Burst:
+                    if (pressedThisFrame && _burstShotsRemaining <= 0)
+                    {
+                        _burstShotsRemaining = _config.BurstCount;
+                    }
+                    return TryContinueBurst();
+                default:
+                    return pressedThisFrame && TryFire();
+            }
         }
 
         public bool Reload()
@@ -146,10 +170,15 @@ namespace HoldPointShowdown.Combat
             bool foundBlockingHit = false;
             RaycastHit hit = default;
             float nearestDistance = _config.Range + 1f;
+            Damageable selfDamageable = GetComponent<Damageable>();
             for (int index = 0; index < hitCount; index++)
             {
                 RaycastHit candidate = _hitBuffer[index];
                 IDamageable candidateDamageable = candidate.collider.GetComponentInParent<IDamageable>();
+                if (candidateDamageable != null && ReferenceEquals(candidateDamageable, selfDamageable))
+                {
+                    continue;
+                }
                 if (candidate.collider.isTrigger && candidateDamageable == null)
                 {
                     continue;
@@ -210,6 +239,22 @@ namespace HoldPointShowdown.Combat
             {
                 CompleteReload();
             }
+
+            if (_config != null && _config.FireMode == WeaponFireMode.Burst && _burstShotsRemaining > 0)
+            {
+                TryContinueBurst();
+            }
+        }
+
+        private bool TryContinueBurst()
+        {
+            if (_burstShotsRemaining <= 0 || !TryFire())
+            {
+                return false;
+            }
+
+            _burstShotsRemaining--;
+            return true;
         }
     }
 }

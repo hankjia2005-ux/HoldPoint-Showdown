@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.Runtime;
+using HoldPointShowdown.Player;
 using UnityEngine;
 
 namespace HoldPointShowdown.GameFlow
@@ -12,6 +14,7 @@ namespace HoldPointShowdown.GameFlow
         [SerializeField] private GameRuleConfig _rules;
         [SerializeField] private bool _startOnAwake = true;
         [SerializeField] private List<CombatantLifecycle> _combatants = new();
+        [SerializeField] private CombatantRuntimeSet _combatantSet;
 
         private float _matchStartedAt;
         private Coroutine _resultCheckRoutine;
@@ -51,7 +54,7 @@ namespace HoldPointShowdown.GameFlow
             }
         }
 
-        public void Configure(GameRuleConfig rules)
+        public void Configure(GameRuleConfig rules, CombatantRuntimeSet combatantSet = null)
         {
             if (_runtimeRules != null)
             {
@@ -60,6 +63,7 @@ namespace HoldPointShowdown.GameFlow
             }
 
             _rules = rules;
+            _combatantSet = combatantSet;
             CreateRuntimeRulesIfNeeded();
         }
 
@@ -159,6 +163,26 @@ namespace HoldPointShowdown.GameFlow
         public CombatantLifecycle GetHumanPlayer()
         {
             return _combatants.Find(combatant => combatant != null && combatant.IsHumanPlayer);
+        }
+
+        public Transform GetSpectatorTarget(TeamId preferredTeam)
+        {
+            CombatantLifecycle teammate = _combatants.Find(combatant => combatant != null
+                && !combatant.IsHumanPlayer
+                && !combatant.IsEliminated
+                && combatant.Damageable != null
+                && combatant.Damageable.IsAlive
+                && combatant.Team == preferredTeam);
+            if (teammate != null)
+            {
+                return teammate.transform;
+            }
+
+            CombatantLifecycle opponent = _combatants.Find(combatant => combatant != null
+                && !combatant.IsEliminated
+                && combatant.Damageable != null
+                && combatant.Damageable.IsAlive);
+            return opponent != null ? opponent.transform : null;
         }
 
         public void RaiseMessage(string message, float duration = 3f)
@@ -283,6 +307,20 @@ namespace HoldPointShowdown.GameFlow
         private void RefreshCombatants()
         {
             _combatants.Clear();
+            if (_combatantSet != null)
+            {
+                _combatantSet.RemoveMissingEntries();
+                foreach (TeamMember member in _combatantSet.Items)
+                {
+                    CombatantLifecycle lifecycle = member != null ? member.GetComponent<CombatantLifecycle>() : null;
+                    if (lifecycle != null && !_combatants.Contains(lifecycle))
+                    {
+                        _combatants.Add(lifecycle);
+                    }
+                }
+                return;
+            }
+
             _combatants.AddRange(UnityEngine.Object.FindObjectsByType<CombatantLifecycle>(FindObjectsInactive.Exclude));
         }
 

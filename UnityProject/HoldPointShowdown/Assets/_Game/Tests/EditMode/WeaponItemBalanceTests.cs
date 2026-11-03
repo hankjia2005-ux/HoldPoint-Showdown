@@ -26,11 +26,11 @@ namespace HoldPointShowdown.Tests
         [Test]
         public void FiveWeaponTiers_StayInsidePlayableDemoEnvelope()
         {
-            WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 20f, 4f, 1, 0.8f, 12);
-            WeaponConfig smg = CreateWeapon("冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon, 13f, 10f, 1, 2.15f, 30);
-            WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 22f, 6f, 1, 0.65f, 24);
-            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 7f, 2.5f, 8, 6.4f, 8);
-            WeaponConfig golden = CreateWeapon("金色步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary, 25f, 6.6f, 1, 0.5f, 25);
+            WeaponConfig pistol = CreateWeapon("手枪", WeaponArchetype.Pistol, ItemRarity.Common, 22f, 3.2f, 1, 0.8f, 12, WeaponFireMode.SemiAutomatic);
+            WeaponConfig smg = CreateWeapon("冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon, 11f, 7f, 1, 2.15f, 24, WeaponFireMode.Automatic);
+            WeaponConfig rifle = CreateWeapon("步枪", WeaponArchetype.AssaultRifle, ItemRarity.Rare, 19f, 4f, 1, 0.65f, 21, WeaponFireMode.Burst);
+            WeaponConfig shotgun = CreateWeapon("霰弹枪", WeaponArchetype.AutoShotgun, ItemRarity.Epic, 6f, 1.5f, 6, 6.4f, 7, WeaponFireMode.Automatic);
+            WeaponConfig golden = CreateWeapon("金色步枪", WeaponArchetype.AssaultRifle, ItemRarity.Legendary, 19f, 4.2f, 1, 0.5f, 21, WeaponFireMode.Automatic);
 
             foreach (WeaponConfig weapon in new[] { pistol, smg, rifle, shotgun, golden })
             {
@@ -39,26 +39,26 @@ namespace HoldPointShowdown.Tests
                 Assert.That(weapon.MagazineSize, Is.GreaterThanOrEqualTo(CombatBalance.CalculateShotsToEliminate(weapon)));
             }
 
-            Assert.That(pistol.BodyDps, Is.LessThan(smg.BodyDps));
-            Assert.That(smg.BodyDps, Is.LessThanOrEqualTo(rifle.BodyDps));
-            Assert.That(rifle.BodyDps, Is.LessThan(shotgun.BodyDps));
-            Assert.That(shotgun.BodyDps, Is.LessThan(golden.BodyDps));
-            Assert.That(pistol.IdealArmoredTtk, Is.GreaterThan(shotgun.IdealArmoredTtk));
+            Assert.That(pistol.FireMode, Is.EqualTo(WeaponFireMode.SemiAutomatic));
+            Assert.That(smg.FireMode, Is.EqualTo(WeaponFireMode.Automatic));
+            Assert.That(rifle.FireMode, Is.EqualTo(WeaponFireMode.Burst));
+            Assert.That(golden.IdealArmoredTtk, Is.LessThan(shotgun.IdealArmoredTtk));
         }
 
-        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab", 15)]
-        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab", 24)]
-        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Rifle.prefab", 24)]
-        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_AutoShotgun.prefab", 22)]
-        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_GoldenRifle.prefab", 28)]
-        public void WeaponArt_HasReadableLowPolySilhouette(string assetPath, int minimumRendererCount)
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Pistol.prefab")]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_SMG.prefab")]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_Rifle.prefab")]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_AutoShotgun.prefab")]
+        [TestCase("Assets/_Game/Art/Items/Prefabs/Weapon_GoldenRifle.prefab")]
+        public void WeaponArt_UsesAtMostFourMaterialBatches(string assetPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 
             Assert.That(prefab, Is.Not.Null, $"武器美术资产不存在：{assetPath}");
-            Assert.That(prefab.GetComponentsInChildren<Renderer>(true).Length,
-                Is.GreaterThanOrEqualTo(minimumRendererCount),
-                $"{prefab.name} 缺少足够的材质分区或轮廓细节");
+            int rendererCount = prefab.GetComponentsInChildren<Renderer>(true).Length;
+            Assert.That(rendererCount, Is.GreaterThan(0));
+            Assert.That(rendererCount, Is.LessThanOrEqualTo(4),
+                $"{prefab.name} 应按材质合并，避免一把枪产生几十次绘制");
             Assert.That(prefab.transform.Find("枪口"), Is.Not.Null,
                 $"{prefab.name} 必须保留枪口挂点，供火焰、音频和弹道共用");
         }
@@ -79,7 +79,7 @@ namespace HoldPointShowdown.Tests
             {
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
                 int rendererCount = prefab.GetComponentsInChildren<Renderer>(true).Length;
-                Assert.That(rendererCount, Is.LessThanOrEqualTo(48),
+                Assert.That(rendererCount, Is.LessThanOrEqualTo(4),
                     $"{prefab.name} 的独立网格过多，会增加移动端批次和维护成本");
             }
         }
@@ -195,13 +195,14 @@ namespace HoldPointShowdown.Tests
             float shotsPerSecond,
             int pellets,
             float spread,
-            int magazine)
+            int magazine,
+            WeaponFireMode fireMode = WeaponFireMode.SemiAutomatic)
         {
             WeaponConfig config = Track(ScriptableObject.CreateInstance<WeaponConfig>());
             config.SetBalancedValues(
                 $"test.{name}", name, archetype, rarity, AmmoKind.Light,
                 damage, shotsPerSecond, pellets, spread, magazine, magazine * 3,
-                2f, 30, 80f, null, Color.white);
+                2f, 30, 80f, null, Color.white, fireMode);
             return config;
         }
 

@@ -17,11 +17,6 @@ namespace HoldPointShowdown.Data
         [SerializeField, Min(0f)] private float _finalRespawnDelay = 5f;
         [SerializeField, Min(1)] private int _finalBattleLives = 2;
 
-        [Header("Player")]
-        [SerializeField, Min(1f)] private float _playerMaxHealth = 100f;
-        [SerializeField, Min(0f)] private float _playerMaxArmor = 50f;
-        [SerializeField, Min(1)] private int _backpackSlots = 12;
-
         public float ScavengeEndsAt => _scavengeEndsAt;
         public float RaidEndsAt => _raidEndsAt;
         public float MatchEndsAt => _matchEndsAt;
@@ -29,10 +24,6 @@ namespace HoldPointShowdown.Data
         public float RaidRespawnDelay => _raidRespawnDelay;
         public float FinalRespawnDelay => _finalRespawnDelay;
         public int FinalBattleLives => _finalBattleLives;
-        public float PlayerMaxHealth => _playerMaxHealth;
-        public float PlayerMaxArmor => _playerMaxArmor;
-        public int BackpackSlots => _backpackSlots;
-
         public MatchPhase ResolvePhase(float elapsedSeconds)
         {
             if (elapsedSeconds < _scavengeEndsAt)
@@ -88,9 +79,6 @@ namespace HoldPointShowdown.Data
             _raidRespawnDelay = Mathf.Max(0f, _raidRespawnDelay);
             _finalRespawnDelay = Mathf.Max(0f, _finalRespawnDelay);
             _finalBattleLives = Mathf.Max(1, _finalBattleLives);
-            _playerMaxHealth = Mathf.Max(1f, _playerMaxHealth);
-            _playerMaxArmor = Mathf.Max(0f, _playerMaxArmor);
-            _backpackSlots = Mathf.Max(1, _backpackSlots);
         }
     }
 }

@@ -339,6 +339,44 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
+        public IEnumerator StrategicHoldPoint_MustBeNeutralizedBeforeEnemyCapture()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            StrategicHoldPoint holdPoint = Object.FindAnyObjectByType<StrategicHoldPoint>();
+            Assert.That(holdPoint, Is.Not.Null, "场景必须包含真正可争夺的中央据点");
+            holdPoint.ConfigureTimings(0.2f, 10f);
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+
+            match.Rules.SetDemoValues(1f, 10f, 20f, 0.05f, 0.05f, 0.05f, 2);
+            match.StartMatch();
+            yield return new WaitForSeconds(1.08f);
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.Raid));
+            Assert.That(holdPoint.IsActive, Is.True);
+            MoveTeamForPointTest(match, TeamId.Blue, holdPoint.transform.position);
+            MoveTeamForPointTest(match, TeamId.Red, holdPoint.transform.position + Vector3.forward * 20f);
+            yield return null;
+            Assert.That(holdPoint.BlueOccupants, Is.GreaterThan(0),
+                "据点必须能在 RuntimeSet 重载空窗时从比赛战斗员列表识别蓝方玩家");
+            yield return new WaitForSeconds(0.25f);
+            Assert.That(holdPoint.ControllingTeam, Is.EqualTo(TeamId.Blue));
+
+            MoveTeamForPointTest(match, TeamId.Blue, holdPoint.transform.position + Vector3.back * 20f);
+            MoveTeamForPointTest(match, TeamId.Red, holdPoint.transform.position);
+            yield return new WaitForSeconds(0.12f);
+            Assert.That(holdPoint.ControllingTeam, Is.EqualTo(TeamId.None),
+                "敌方推进到中线时应先让据点失控，不能让原控制方继续领取补给");
+            yield return new WaitForSeconds(0.14f);
+            Assert.That(holdPoint.ControllingTeam, Is.EqualTo(TeamId.Red));
+        }
+
+        [UnityTest]
         public IEnumerator CameraRig_AcceptsMouseAim_ZoomsOut_AndControllerCrouches()
         {
             SceneManager.LoadScene("ArenaTown");
@@ -622,6 +660,24 @@ namespace HoldPointShowdown.Tests
             Assert.That(match.Result, Is.EqualTo(MatchResult.BlueVictory));
             Assert.That(match.IsRunning, Is.False);
             Assert.That(match.GetRemainingTeamMembers(TeamId.Red), Is.EqualTo(0));
+        }
+
+        private static void MoveTeamForPointTest(MatchPhaseController match, TeamId team, Vector3 destination)
+        {
+            int offset = 0;
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                if (combatant.Team != team)
+                {
+                    continue;
+                }
+
+                CharacterController controller = combatant.GetComponent<CharacterController>();
+                if (controller != null) controller.enabled = false;
+                combatant.transform.position = destination + (Vector3.right * offset++);
+                if (controller != null) controller.enabled = true;
+            }
+            Physics.SyncTransforms();
         }
     }
 }

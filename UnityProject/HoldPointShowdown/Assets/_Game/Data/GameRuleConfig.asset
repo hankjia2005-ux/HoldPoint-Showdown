@@ -19,6 +19,3 @@ MonoBehaviour:
   _raidRespawnDelay: 5
   _finalRespawnDelay: 5
   _finalBattleLives: 2
-  _playerMaxHealth: 100
-  _playerMaxArmor: 50
-  _backpackSlots: 12
