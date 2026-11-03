@@ -1,5 +1,6 @@
 using System;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.Player;
 using UnityEngine;
 
 namespace HoldPointShowdown.Combat
@@ -138,7 +139,13 @@ namespace HoldPointShowdown.Combat
                 endPoint = hit.point;
                 hitNormal = hit.normal;
                 IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
-                damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
+                TeamMember sourceTeam = GetComponent<TeamMember>();
+                TeamMember targetTeam = hit.collider.GetComponentInParent<TeamMember>();
+                bool friendly = sourceTeam != null && targetTeam != null && sourceTeam.Team == targetTeam.Team;
+                if (!friendly)
+                {
+                    damageable?.ApplyDamage(_config.Damage, hit.point, gameObject);
+                }
             }
 
             Debug.DrawLine(ray.origin, endPoint, _config.RarityColor, 0.2f);

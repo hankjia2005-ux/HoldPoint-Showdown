@@ -1,7 +1,9 @@
 using System.Collections;
 using HoldPointShowdown.AI;
 using HoldPointShowdown.Combat;
+using HoldPointShowdown.Core;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Gameplay;
 using HoldPointShowdown.Player;
 using NUnit.Framework;
@@ -87,34 +89,180 @@ namespace HoldPointShowdown.Tests
         }
 
         [UnityTest]
-        public IEnumerator PlayerDeath_RespawnsAtBlueBase()
+        public IEnumerator PhaseOneDeath_DropsLoot_AndRespawnsAtBlueBaseWithStarterOnly()
         {
             SceneManager.LoadScene("ArenaTown");
             yield return null;
             yield return null;
 
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            CombatantLifecycle player = match.GetHumanPlayer();
             PrototypeInventory inventory = Object.FindAnyObjectByType<PrototypeInventory>();
+            WeaponLoadout loadout = inventory.GetComponent<WeaponLoadout>();
+            PrototypeHitscanWeapon weapon = inventory.GetComponent<PrototypeHitscanWeapon>();
             Damageable damageable = inventory.GetComponent<Damageable>();
             CharacterController controller = inventory.GetComponent<CharacterController>();
-            Vector3 spawnPosition = inventory.transform.position;
+            Vector3 spawnPosition = player.SpawnPosition;
 
             foreach (PrototypeEnemyAI bot in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
             {
                 bot.enabled = false;
             }
 
+            match.Rules.SetDemoValues(180f, 300f, 720f, 0.1f, 5f, 5f, 2);
+            WorldItemPickup smgPickup = null;
+            foreach (WorldItemPickup pickup in Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude))
+            {
+                if (pickup.Weapon != null && pickup.Weapon.Archetype == WeaponArchetype.SubmachineGun)
+                {
+                    smgPickup = pickup;
+                    break;
+                }
+            }
+
+            Assert.That(smgPickup, Is.Not.Null);
+            Assert.That(smgPickup.TryCollect(inventory), Is.True);
+            Assert.That(inventory.TryAdd(SupplyKind.AmmoPack), Is.True);
+            Assert.That(inventory.TryAdd(SupplyKind.Medkit), Is.True);
+            int pickupsBeforeDeath = Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length;
+
             controller.enabled = false;
-            inventory.transform.position = spawnPosition + new Vector3(8f, 0f, 8f);
+            inventory.transform.position = new Vector3(8f, 0.8f, 0f);
             controller.enabled = true;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            Assert.That(damageable.IsInvulnerable, Is.False, "离开基地后必须可以受到伤害");
+
             damageable.ApplyDamage(1000f, inventory.transform.position, null);
 
             Assert.That(damageable.IsAlive, Is.False);
-            yield return new WaitForSeconds(2.2f);
+            Assert.That(loadout.WeaponCount, Is.EqualTo(1), "死亡后只能保留绑定的初始手枪");
+            Assert.That(inventory.AmmoPacks, Is.EqualTo(0));
+            Assert.That(inventory.Medkits, Is.EqualTo(0));
+            Assert.That(
+                Object.FindObjectsByType<WorldItemPickup>(FindObjectsInactive.Exclude).Length,
+                Is.GreaterThanOrEqualTo(pickupsBeforeDeath + 3),
+                "获得的武器、弹药包和医疗包都应掉在死亡地点");
+
+            yield return new WaitForSeconds(0.2f);
             yield return null;
 
             Assert.That(damageable.IsAlive, Is.True);
             Assert.That(damageable.CurrentHealth, Is.EqualTo(damageable.MaxHealth));
-            Assert.That(Vector3.Distance(inventory.transform.position, spawnPosition), Is.LessThan(0.15f));
+            Assert.That(Vector2.Distance(
+                new Vector2(inventory.transform.position.x, inventory.transform.position.z),
+                new Vector2(spawnPosition.x, spawnPosition.z)), Is.LessThan(0.15f));
+            Assert.That(loadout.ActiveWeapon.Archetype, Is.EqualTo(WeaponArchetype.Pistol));
+            Assert.That(weapon.MagazineAmmo, Is.EqualTo(12));
+            Assert.That(weapon.ReserveAmmo, Is.EqualTo(30));
+            Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
+        }
+
+        [UnityTest]
+        public IEnumerator PhaseOneBaseProtection_BlocksDamage_AndEjectsIntruders()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return new WaitForFixedUpdate();
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            CombatantLifecycle player = match.GetHumanPlayer();
+            BaseProtectionZone[] zones = Object.FindObjectsByType<BaseProtectionZone>(FindObjectsInactive.Exclude);
+            Assert.That(zones.Length, Is.EqualTo(2));
+            Assert.That(zones[0].IsProtectionActive, Is.True);
+            Assert.That(zones[1].IsProtectionActive, Is.True);
+            Assert.That(player.Damageable.IsInvulnerable, Is.True);
+
+            player.Damageable.ApplyDamage(50f, player.transform.position, null);
+            Assert.That(player.Damageable.CurrentHealth, Is.EqualTo(100f));
+
+            CombatantLifecycle intruder = null;
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                PrototypeEnemyAI ai = combatant.GetComponent<PrototypeEnemyAI>();
+                if (ai != null)
+                {
+                    ai.enabled = false;
+                }
+
+                if (intruder == null && combatant.Team == TeamId.Red)
+                {
+                    intruder = combatant;
+                }
+            }
+
+            Assert.That(intruder, Is.Not.Null);
+            CharacterController intruderController = intruder.GetComponent<CharacterController>();
+            intruderController.enabled = false;
+            intruder.transform.position = new Vector3(0f, 0.8f, -34f);
+            intruderController.enabled = true;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.That(intruder.transform.position.z, Is.GreaterThan(-30f), "闯入敌方基地的角色应被推出保护区");
+        }
+
+        [UnityTest]
+        public IEnumerator FinalBattle_TwoDeathsEliminatePlayers_AndResolveVictory()
+        {
+            SceneManager.LoadScene("ArenaTown");
+            yield return null;
+            yield return null;
+
+            MatchPhaseController match = Object.FindAnyObjectByType<MatchPhaseController>();
+            foreach (PrototypeEnemyAI ai in Object.FindObjectsByType<PrototypeEnemyAI>(FindObjectsInactive.Exclude))
+            {
+                ai.enabled = false;
+            }
+
+            match.Rules.SetDemoValues(1f, 2f, 20f, 0.05f, 0.05f, 0.05f, 2);
+            match.StartMatch();
+            yield return new WaitForSeconds(2.1f);
+
+            Assert.That(match.CurrentPhase, Is.EqualTo(MatchPhase.FinalBattle));
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                Assert.That(combatant.FinalLivesRemaining, Is.EqualTo(2));
+            }
+
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                if (combatant.Team != TeamId.Red)
+                {
+                    continue;
+                }
+
+                combatant.Damageable.SetInvulnerable(false);
+                combatant.Damageable.ApplyDamage(999f, combatant.transform.position, null);
+            }
+
+            yield return new WaitForSeconds(0.12f);
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                if (combatant.Team == TeamId.Red)
+                {
+                    Assert.That(combatant.IsEliminated, Is.False);
+                    Assert.That(combatant.FinalLivesRemaining, Is.EqualTo(1));
+                    Assert.That(combatant.Damageable.IsAlive, Is.True);
+                }
+            }
+
+            foreach (CombatantLifecycle combatant in match.Combatants)
+            {
+                if (combatant.Team != TeamId.Red)
+                {
+                    continue;
+                }
+
+                combatant.Damageable.SetInvulnerable(false);
+                combatant.Damageable.ApplyDamage(999f, combatant.transform.position, null);
+            }
+
+            yield return null;
+            yield return null;
+            Assert.That(match.Result, Is.EqualTo(MatchResult.BlueVictory));
+            Assert.That(match.IsRunning, Is.False);
+            Assert.That(match.GetRemainingTeamMembers(TeamId.Red), Is.EqualTo(0));
         }
     }
 }

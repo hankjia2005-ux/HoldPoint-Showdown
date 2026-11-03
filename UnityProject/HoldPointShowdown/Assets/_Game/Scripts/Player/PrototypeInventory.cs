@@ -1,5 +1,6 @@
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Gameplay;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,6 +19,7 @@ namespace HoldPointShowdown.Player
         [SerializeField] private Damageable _damageable;
         [SerializeField] private WeaponLoadout _loadout;
         [SerializeField] private GameBalanceConfig _balance;
+        private CombatantLifecycle _lifecycle;
 
         public int AmmoPacks => _ammoPacks;
         public int Medkits => _medkits;
@@ -29,12 +31,15 @@ namespace HoldPointShowdown.Player
         public int UsedSlots => _ammoPacks + _medkits + _armorPlates + WeaponSlotsUsed;
         public int FreeSlots => Mathf.Max(0, _capacity - UsedSlots);
         public WeaponLoadout Loadout => _loadout;
+        public bool CanInteract => (_damageable == null || _damageable.IsAlive)
+            && (_lifecycle == null || _lifecycle.CanAct);
 
         public void Configure(PrototypeHitscanWeapon weapon, Damageable damageable, int capacity = 8)
         {
             _weapon = weapon;
             _damageable = damageable;
             _capacity = Mathf.Max(1, capacity);
+            _lifecycle = GetComponent<CombatantLifecycle>();
         }
 
         public void Configure(
@@ -48,6 +53,7 @@ namespace HoldPointShowdown.Player
             _loadout = loadout;
             _balance = balance;
             _capacity = balance != null ? balance.BackpackSlots : 12;
+            _lifecycle = GetComponent<CombatantLifecycle>();
         }
 
         public bool TryAddWeapon(WeaponConfig config)
@@ -93,6 +99,18 @@ namespace HoldPointShowdown.Player
             return true;
         }
 
+        public int TryAddUpTo(SupplyKind kind, int amount)
+        {
+            int added = Mathf.Min(Mathf.Max(0, amount), FreeSlots);
+            if (added <= 0)
+            {
+                return 0;
+            }
+
+            SetCount(kind, GetCount(kind) + added);
+            return added;
+        }
+
         public bool TryRemove(SupplyKind kind, int amount = 1)
         {
             if (amount <= 0 || GetCount(kind) < amount)
@@ -106,7 +124,7 @@ namespace HoldPointShowdown.Player
 
         public bool TryUse(SupplyKind kind)
         {
-            if (GetCount(kind) <= 0)
+            if (!CanInteract || GetCount(kind) <= 0)
             {
                 return false;
             }
@@ -129,6 +147,18 @@ namespace HoldPointShowdown.Player
             return used;
         }
 
+        public void DropAllOnDeath(Vector3 deathPosition)
+        {
+            int dropIndex = 0;
+            DropSupplyStack(SupplyKind.AmmoPack, _ammoPacks, deathPosition, ref dropIndex);
+            DropSupplyStack(SupplyKind.Medkit, _medkits, deathPosition, ref dropIndex);
+            DropSupplyStack(SupplyKind.ArmorPlate, _armorPlates, deathPosition, ref dropIndex);
+            _ammoPacks = 0;
+            _medkits = 0;
+            _armorPlates = 0;
+            _loadout?.DropAllLootWeapons(deathPosition, ref dropIndex);
+        }
+
         private int AddActiveAmmo()
         {
             int fallback = _balance != null ? _balance.AmmoPackAmount : 30;
@@ -142,6 +172,12 @@ namespace HoldPointShowdown.Player
 
         private void Update()
         {
+            _lifecycle ??= GetComponent<CombatantLifecycle>();
+            if (!CanInteract)
+            {
+                return;
+            }
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
             {
@@ -177,6 +213,23 @@ namespace HoldPointShowdown.Player
                     _armorPlates = value;
                     break;
             }
+        }
+
+        private static void DropSupplyStack(
+            SupplyKind kind,
+            int amount,
+            Vector3 deathPosition,
+            ref int dropIndex)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            float angle = dropIndex * 120f * Mathf.Deg2Rad;
+            Vector3 offset = new(Mathf.Cos(angle) * 0.8f, 0.15f, Mathf.Sin(angle) * 0.8f);
+            WorldItemPickup.CreateSupplyDrop(kind, amount, deathPosition + offset);
+            dropIndex++;
         }
     }
 }

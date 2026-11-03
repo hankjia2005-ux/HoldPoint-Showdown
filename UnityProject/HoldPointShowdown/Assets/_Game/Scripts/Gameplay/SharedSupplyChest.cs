@@ -1,5 +1,6 @@
 using System.Collections;
 using HoldPointShowdown.Core;
+using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,23 +15,31 @@ namespace HoldPointShowdown.Gameplay
         [SerializeField, Min(0)] private int _medkits = 3;
         [SerializeField, Min(0)] private int _armorPlates = 3;
         [SerializeField, Min(1f)] private float _interactionRange = 4.5f;
+        [SerializeField, Min(1)] private int _maxPerKind = 20;
 
         [SerializeField] private Transform _player;
         [SerializeField] private TeamMember _playerTeam;
         [SerializeField] private PrototypeInventory _inventory;
         [SerializeField] private Renderer[] _renderers;
+        [SerializeField] private MatchPhaseController _match;
         private bool _isOpen;
         private GUIStyle _panelStyle;
         private GUIStyle _titleStyle;
         private GUIStyle _bodyStyle;
         private Texture2D _panelTexture;
 
-        public void Configure(TeamId team, Transform player, TeamMember playerTeam, PrototypeInventory inventory)
+        public void Configure(
+            TeamId team,
+            Transform player,
+            TeamMember playerTeam,
+            PrototypeInventory inventory,
+            MatchPhaseController match = null)
         {
             _team = team;
             _player = player;
             _playerTeam = playerTeam;
             _inventory = inventory;
+            _match = match;
             _renderers = GetComponentsInChildren<Renderer>();
         }
 
@@ -97,14 +106,14 @@ namespace HoldPointShowdown.Gameplay
             bool friendly = IsFriendly();
             if (!_isOpen)
             {
-                GUI.Label(panel, $"[E] 打开{side}共享物资箱{(friendly ? string.Empty : "（敌方：仅可取出）")}", _titleStyle);
+                GUI.Label(panel, $"[E] 打开{side}共享消耗品箱{(friendly ? string.Empty : "（敌方：仅可取出）")}", _titleStyle);
                 return;
             }
 
-            GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享物资箱", _titleStyle);
+            GUI.Label(new Rect(panel.x + 18f, panel.y + 10f, panel.width - 36f, 30f), $"{side}共享消耗品箱", _titleStyle);
             GUI.Label(
                 new Rect(panel.x + 24f, panel.y + 48f, panel.width - 48f, 78f),
-                $"[F1] 弹药包 × {_ammoPacks}     [F2] 医疗包 × {_medkits}     [F3] 护甲片 × {_armorPlates}\n" +
+                $"[F1] 弹药包 {_ammoPacks}/{_maxPerKind}     [F2] 医疗包 {_medkits}/{_maxPerKind}     [F3] 护甲片 {_armorPlates}/{_maxPerKind}\n" +
                 $"个人背包：{_inventory.UsedSlots}/{_inventory.Capacity}   弹药 {_inventory.AmmoPacks} / 医疗 {_inventory.Medkits} / 护甲 {_inventory.ArmorPlates}",
                 _bodyStyle);
 
@@ -123,7 +132,7 @@ namespace HoldPointShowdown.Gameplay
 
             if (depositing)
             {
-                if (!IsFriendly() || !_inventory.TryRemove(kind))
+                if (!IsFriendly() || GetStock(kind) >= _maxPerKind || !_inventory.TryRemove(kind))
                 {
                     return;
                 }
@@ -139,6 +148,10 @@ namespace HoldPointShowdown.Gameplay
                 }
 
                 SetStock(kind, stock - 1);
+                if (!IsFriendly())
+                {
+                    _match?.RaiseMessage($"{(_team == TeamId.Blue ? "蓝方" : "红方")}基地物资被抢", 3f);
+                }
             }
 
             StartCoroutine(FlashChest(IsFriendly() ? new Color(0.25f, 0.85f, 1f) : new Color(1f, 0.15f, 0.12f)));
@@ -171,7 +184,9 @@ namespace HoldPointShowdown.Gameplay
                 center = bounds.center;
             }
 
-            return Vector3.Distance(_player.position, center) <= _interactionRange;
+            return _inventory != null
+                && _inventory.CanInteract
+                && Vector3.Distance(_player.position, center) <= _interactionRange;
         }
 
         private int GetStock(SupplyKind kind)

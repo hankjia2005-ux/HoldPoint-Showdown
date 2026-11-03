@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HoldPointShowdown.Combat;
 using HoldPointShowdown.Data;
 using HoldPointShowdown.Gameplay;
+using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -24,6 +25,9 @@ namespace HoldPointShowdown.Player
         [SerializeField, Min(1)] private int _maxWeapons = 2;
         [SerializeField] private List<WeaponSlot> _slots = new();
         [SerializeField] private int _activeIndex = -1;
+        [SerializeField] private WeaponConfig _starterWeapon;
+        private Damageable _damageable;
+        private CombatantLifecycle _lifecycle;
 
         public int WeaponCount => _slots.Count;
         public int MaxWeapons => _maxWeapons;
@@ -37,6 +41,7 @@ namespace HoldPointShowdown.Player
             _maxWeapons = Mathf.Max(1, maxWeapons);
             _slots.Clear();
             _activeIndex = -1;
+            _starterWeapon = startingWeapons != null && startingWeapons.Length > 0 ? startingWeapons[0] : null;
 
             if (startingWeapons != null)
             {
@@ -110,11 +115,60 @@ namespace HoldPointShowdown.Player
             SaveActiveAmmo();
             int droppedIndex = _activeIndex;
             WeaponSlot droppedSlot = _slots[droppedIndex];
+            if (IsStarter(droppedSlot.Config))
+            {
+                return false;
+            }
+
             _slots.RemoveAt(droppedIndex);
             _activeIndex = -1;
             EquipIndex(Mathf.Clamp(droppedIndex, 0, _slots.Count - 1));
-            SpawnDroppedWeapon(droppedSlot.Config, droppedSlot.Magazine, droppedSlot.Reserve);
+            SpawnDroppedWeapon(
+                droppedSlot.Config,
+                droppedSlot.Magazine,
+                droppedSlot.Reserve,
+                transform.position + (transform.forward * 1.4f) + (Vector3.up * 0.75f),
+                0.8f);
             return true;
+        }
+
+        public void DropAllLootWeapons(Vector3 deathPosition, ref int dropIndex)
+        {
+            SaveActiveAmmo();
+            foreach (WeaponSlot slot in _slots)
+            {
+                if (slot.Config == null || IsStarter(slot.Config))
+                {
+                    continue;
+                }
+
+                float angle = (dropIndex * 57f) * Mathf.Deg2Rad;
+                Vector3 offset = new(Mathf.Cos(angle) * 1.1f, 0.75f, Mathf.Sin(angle) * 1.1f);
+                SpawnDroppedWeapon(slot.Config, slot.Magazine, slot.Reserve, deathPosition + offset, 0.6f);
+                dropIndex++;
+            }
+
+            ResetToStarter();
+        }
+
+        public void ResetToStarter()
+        {
+            WeaponConfig starter = _starterWeapon;
+            if (starter == null && _slots.Count > 0)
+            {
+                starter = _slots[0].Config;
+                _starterWeapon = starter;
+            }
+
+            if (starter == null || _weapon == null)
+            {
+                return;
+            }
+
+            _slots.Clear();
+            _activeIndex = -1;
+            AddSlot(starter);
+            EquipIndex(0);
         }
 
         public bool EquipIndex(int index)
@@ -168,9 +222,12 @@ namespace HoldPointShowdown.Player
 
         private void Awake()
         {
+            _damageable = GetComponent<Damageable>();
+            _lifecycle = GetComponent<CombatantLifecycle>();
             if (_slots.Count == 0 && _weapon != null && _weapon.Config != null)
             {
                 AddSlot(_weapon.Config);
+                _starterWeapon ??= _weapon.Config;
             }
 
             if (_slots.Count > 0 && (_activeIndex < 0 || _activeIndex >= _slots.Count))
@@ -180,7 +237,12 @@ namespace HoldPointShowdown.Player
             }
         }
 
-        private void SpawnDroppedWeapon(WeaponConfig config, int magazineAmmo, int reserveAmmo)
+        private void SpawnDroppedWeapon(
+            WeaponConfig config,
+            int magazineAmmo,
+            int reserveAmmo,
+            Vector3 position,
+            float pickupDelay)
         {
             if (config == null || config.ModelPrefab == null)
             {
@@ -188,17 +250,23 @@ namespace HoldPointShowdown.Player
             }
 
             GameObject root = new($"掉落 · {config.DisplayName}");
-            root.transform.position = transform.position + (transform.forward * 1.4f) + (Vector3.up * 0.75f);
+            root.transform.position = position;
             GameObject visual = Instantiate(config.ModelPrefab, root.transform);
             visual.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(0f, 90f, 0f));
             visual.transform.localScale *= 1.15f;
             visual.AddComponent<ShowcasePropMotion>().Configure(48f, 0.14f, 1.15f);
             WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
-            pickup.ConfigureDroppedWeapon(config, magazineAmmo, reserveAmmo, visual);
+            pickup.ConfigureDroppedWeapon(config, magazineAmmo, reserveAmmo, visual, pickupDelay, 60f);
         }
 
         private void Update()
         {
+            _lifecycle ??= GetComponent<CombatantLifecycle>();
+            if ((_damageable != null && !_damageable.IsAlive) || (_lifecycle != null && !_lifecycle.CanAct))
+            {
+                return;
+            }
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
             {
@@ -217,6 +285,12 @@ namespace HoldPointShowdown.Player
             {
                 TryDropActive();
             }
+        }
+
+        private bool IsStarter(WeaponConfig config)
+        {
+            return config != null && _starterWeapon != null
+                && (config == _starterWeapon || config.ItemId == _starterWeapon.ItemId);
         }
     }
 }

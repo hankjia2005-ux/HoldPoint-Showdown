@@ -15,7 +15,9 @@ MonoBehaviour:
   _scavengeEndsAt: 180
   _raidEndsAt: 300
   _matchEndsAt: 720
+  _scavengeRespawnDelay: 0.75
   _raidRespawnDelay: 5
+  _finalRespawnDelay: 5
   _finalBattleLives: 2
   _playerMaxHealth: 100
   _playerMaxArmor: 50

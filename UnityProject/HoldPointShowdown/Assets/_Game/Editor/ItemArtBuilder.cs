@@ -57,7 +57,7 @@ namespace HoldPointShowdown.Editor
 
             WeaponConfig pistol = GetOrCreateAsset<WeaponConfig>(PistolAssetPath);
             pistol.SetBalancedValues("weapon.pistol.common", "白色基础手枪", WeaponArchetype.Pistol, ItemRarity.Common,
-                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 36, 1.4f, 30, 72f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
+                AmmoKind.Light, 20f, 4f, 1, 0.8f, 12, 30, 1.4f, 30, 72f, pistolModel, new Color(0.88f, 0.92f, 0.96f));
 
             WeaponConfig smg = GetOrCreateAsset<WeaponConfig>(SmgAssetPath);
             smg.SetBalancedValues("weapon.smg.uncommon", "绿色疾风冲锋枪", WeaponArchetype.SubmachineGun, ItemRarity.Uncommon,

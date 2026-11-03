@@ -55,6 +55,8 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(MaterialsRoot);
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
+        rules.SetDemoValues();
+        EditorUtility.SetDirty(rules);
         ItemArtBuilder.BuildAssets();
         WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
 
@@ -82,6 +84,8 @@ namespace HoldPointShowdown.Editor
         EnsureFolder(GameRoot + "/UI");
 
         GameRuleConfig rules = GetOrCreateAsset<GameRuleConfig>(DataRoot + "/GameRuleConfig.asset");
+        rules.SetDemoValues();
+        EditorUtility.SetDirty(rules);
         ItemArtBuilder.BuildAssets();
         WeaponConfig pistol = AssetDatabase.LoadAssetAtPath<WeaponConfig>(ItemArtBuilder.PistolAssetPath);
 
@@ -257,8 +261,14 @@ namespace HoldPointShowdown.Editor
             CreateBlock($"Road Mark {z}", environment.transform, new Vector3(0f, 0.13f, z), new Vector3(0.28f, 0.03f, 2.8f), warmWhite, false);
         }
 
-        GameObject blueChest = CreateTeamBase("Blue Base", -34f, true, architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
-        GameObject redChest = CreateTeamBase("Red Base", 34f, false, architecture.transform, props.transform, red, warmWhite, dark, yellow, redShield);
+        GameObject flowObject = new("Match Flow");
+        MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
+        match.Configure(rules);
+
+        GameObject blueChest = CreateTeamBase("Blue Base", -34f, true, TeamId.Blue, match,
+            architecture.transform, props.transform, blue, warmWhite, dark, yellow, blueShield);
+        GameObject redChest = CreateTeamBase("Red Base", 34f, false, TeamId.Red, match,
+            architecture.transform, props.transform, red, warmWhite, dark, yellow, redShield);
 
         float[] buildingRows = { -22f, -9f, 9f, 22f };
         for (int i = 0; i < buildingRows.Length; i++)
@@ -287,8 +297,8 @@ namespace HoldPointShowdown.Editor
         CreateSupplyPickup("西侧医疗", new Vector3(-18f, 1f, -22f), props.transform,
             SupplyKind.Medkit, ItemArtBuilder.MedkitPrefabPath, balance, coral);
 
-        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -22.5f), rules);
-        Camera camera = CreateCamera(new Vector3(0f, 4.5f, -34f), Quaternion.identity, true);
+        GameObject player = CreateShowcasePlayer(new Vector3(0f, 0.15f, -35.6f), rules);
+        Camera camera = CreateCamera(new Vector3(0f, 4.5f, -42f), Quaternion.identity, true);
         camera.backgroundColor = new Color(0.43f, 0.72f, 0.91f);
         camera.fieldOfView = 64f;
         camera.farClipPlane = 180f;
@@ -310,17 +320,18 @@ namespace HoldPointShowdown.Editor
         loadout.Configure(weapon, balance != null ? balance.MaxCarriedWeapons : 2, pistol);
         PrototypeInventory inventory = player.AddComponent<PrototypeInventory>();
         inventory.Configure(weapon, playerDamageable, loadout, balance);
+        CombatantLifecycle playerLifecycle = player.AddComponent<CombatantLifecycle>();
+        playerLifecycle.Configure(match, pistol, inventory, loadout, true);
 
-        blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory);
-        redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory);
+        blueChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Blue, player.transform, playerTeam, inventory, match);
+        redChest.AddComponent<SharedSupplyChest>().Configure(TeamId.Red, player.transform, playerTeam, inventory, match);
 
-        CreateEnemyBot("红方守卫甲", new Vector3(-3.8f, 0.15f, 17f), props.transform, rules, player, 50f, rifle);
-        CreateEnemyBot("红方守卫乙", new Vector3(4.2f, 0.15f, 23f), props.transform, rules, player, 25f, smg);
-        CreateEnemyBot("中央突击手", new Vector3(3.5f, 0.37f, 4f), props.transform, rules, player, 0f, shotgun);
-
-        GameObject flowObject = new("Match Flow");
-        MatchPhaseController match = flowObject.AddComponent<MatchPhaseController>();
-        match.Configure(rules);
+        CreateBot("蓝方支援", new Vector3(-3.6f, 0.15f, -34.8f), props.transform,
+            rules, match, TeamId.Blue, 0f, rifle);
+        CreateBot("红方守卫甲", new Vector3(-3.6f, 0.15f, 34.8f), props.transform,
+            rules, match, TeamId.Red, 25f, rifle);
+        CreateBot("红方守卫乙", new Vector3(3.6f, 0.15f, 34.8f), props.transform,
+            rules, match, TeamId.Red, 0f, smg);
 
         GameObject hudObject = new("Showcase HUD");
         PrototypeHud hud = hudObject.AddComponent<PrototypeHud>();
@@ -331,6 +342,8 @@ namespace HoldPointShowdown.Editor
         string name,
         float z,
         bool isBlue,
+        TeamId teamId,
+        MatchPhaseController match,
         Transform architectureParent,
         Transform propsParent,
         Material team,
@@ -361,6 +374,19 @@ namespace HoldPointShowdown.Editor
             shieldRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             shieldRenderer.receiveShadows = false;
         }
+
+        GameObject protectionZone = new($"{name} Protection Zone");
+        protectionZone.transform.SetParent(root.transform, true);
+        protectionZone.transform.position = new Vector3(0f, 3.25f, z);
+        BoxCollider protectionTrigger = protectionZone.AddComponent<BoxCollider>();
+        protectionTrigger.isTrigger = true;
+        protectionTrigger.size = new Vector3(18.5f, 6.5f, 11.5f);
+        BaseProtectionZone protection = protectionZone.AddComponent<BaseProtectionZone>();
+        protection.Configure(
+            teamId,
+            match,
+            shieldRenderer,
+            new Vector3(0f, 0.15f, z + (forward * 7.2f)));
 
         GameObject chestRoot = new("Shared Supply Chest");
         chestRoot.transform.SetParent(propsParent);
@@ -649,7 +675,7 @@ namespace HoldPointShowdown.Editor
         characterController.center = new Vector3(0f, 1.35f, 0f);
 
         Damageable damageable = player.AddComponent<Damageable>();
-        damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor);
+        damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, 0f);
         player.AddComponent<TeamMember>().Configure(TeamId.Blue);
 
         GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.BluePrefabPath, player.transform);
@@ -659,17 +685,20 @@ namespace HoldPointShowdown.Editor
         return player;
     }
 
-    private static GameObject CreateEnemyBot(
+    private static GameObject CreateBot(
         string name,
         Vector3 position,
         Transform parent,
         GameRuleConfig rules,
-        GameObject player,
-        float armor,
+        MatchPhaseController match,
+        TeamId team,
+        float startingArmor,
         WeaponConfig weaponConfig)
     {
         GameObject target = new(name);
-        target.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 180f, 0f));
+        target.transform.SetPositionAndRotation(
+            position,
+            Quaternion.Euler(0f, team == TeamId.Blue ? 0f : 180f, 0f));
         target.transform.SetParent(parent, true);
 
         CharacterController characterController = target.AddComponent<CharacterController>();
@@ -678,10 +707,11 @@ namespace HoldPointShowdown.Editor
         characterController.center = new Vector3(0f, 1.35f, 0f);
 
         Damageable damageable = target.AddComponent<Damageable>();
-        damageable.Configure(rules.PlayerMaxHealth, armor);
-        target.AddComponent<TeamMember>().Configure(TeamId.Red);
+        damageable.Configure(rules.PlayerMaxHealth, rules.PlayerMaxArmor, false, startingArmor);
+        target.AddComponent<TeamMember>().Configure(team);
 
-        GameObject visual = InstantiateCharacterVisual(CharacterArtBuilder.RedPrefabPath, target.transform);
+        string visualPath = team == TeamId.Blue ? CharacterArtBuilder.BluePrefabPath : CharacterArtBuilder.RedPrefabPath;
+        GameObject visual = InstantiateCharacterVisual(visualPath, target.transform);
         CharacterCombatFeedback feedback = visual.GetComponent<CharacterCombatFeedback>();
         feedback?.Bind(damageable);
         BlockCharacterVisual characterVisual = visual.GetComponent<BlockCharacterVisual>();
@@ -701,7 +731,9 @@ namespace HoldPointShowdown.Editor
         PrototypeWeaponEffects effects = target.AddComponent<PrototypeWeaponEffects>();
         effects.Configure(null, muzzle);
         PrototypeEnemyAI ai = target.AddComponent<PrototypeEnemyAI>();
-        ai.Configure(player.transform, player.GetComponent<Damageable>(), muzzle);
+        ai.Configure(muzzle);
+        CombatantLifecycle lifecycle = target.AddComponent<CombatantLifecycle>();
+        lifecycle.Configure(match, weaponConfig, null, null, false);
         return target;
     }
 
@@ -899,6 +931,10 @@ namespace HoldPointShowdown.Editor
         PlayerSettings.productName = "HoldPoint Showdown";
         PlayerSettings.bundleVersion = "0.1.0";
         PlayerSettings.colorSpace = ColorSpace.Linear;
+        PlayerSettings.runInBackground = true;
+        PlayerSettings.resizableWindow = true;
+        PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
+        PlayerSettings.defaultIsNativeResolution = true;
         EditorSettings.serializationMode = SerializationMode.ForceText;
         EditorSettings.lineEndingsForNewScripts = LineEndingsMode.Unix;
     }

@@ -26,7 +26,7 @@ namespace HoldPointShowdown.Tests
         public void ApplyDamage_ConsumesArmorBeforeHealth_AndRaisesFeedbackEvent()
         {
             Damageable damageable = _gameObject.AddComponent<Damageable>();
-            damageable.Configure(100f, 50f, false);
+            damageable.Configure(100f, 50f, false, 50f);
             float reportedDamage = 0f;
             damageable.Damaged += (_, amount, _, _) => reportedDamage = amount;
 
@@ -41,7 +41,7 @@ namespace HoldPointShowdown.Tests
         public void RestoreHealthAndArmor_ClampAtConfiguredMaximums()
         {
             Damageable damageable = _gameObject.AddComponent<Damageable>();
-            damageable.Configure(100f, 40f, false);
+            damageable.Configure(100f, 40f, false, 40f);
             damageable.ApplyDamage(70f, Vector3.zero, null);
 
             float armorRestored = damageable.RestoreArmor(100f);
@@ -51,6 +51,22 @@ namespace HoldPointShowdown.Tests
             Assert.That(healthRestored, Is.EqualTo(30f));
             Assert.That(damageable.CurrentArmor, Is.EqualTo(40f));
             Assert.That(damageable.CurrentHealth, Is.EqualTo(100f));
+        }
+
+        [Test]
+        public void Damageable_StartsWithoutArmor_AndHonorsBaseProtection()
+        {
+            Damageable damageable = _gameObject.AddComponent<Damageable>();
+            damageable.Configure(100f, 50f, false, 0f);
+
+            Assert.That(damageable.CurrentArmor, Is.EqualTo(0f));
+            damageable.SetInvulnerable(true);
+            damageable.ApplyDamage(999f, Vector3.zero, null);
+            Assert.That(damageable.CurrentHealth, Is.EqualTo(100f));
+
+            damageable.SetInvulnerable(false);
+            damageable.ApplyDamage(25f, Vector3.zero, null);
+            Assert.That(damageable.CurrentHealth, Is.EqualTo(75f));
         }
 
         [Test]

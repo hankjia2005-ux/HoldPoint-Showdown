@@ -23,7 +23,7 @@ MonoBehaviour:
   _spreadDegrees: 0.8
   _range: 72
   _magazineSize: 12
-  _startingReserveAmmo: 36
+  _startingReserveAmmo: 30
   _reloadSeconds: 1.4
   _ammoPerPickup: 30
   _modelPrefab: {fileID: 8128185973902188274, guid: dc46d6ee03d14b042adedcec82ef5837, type: 3}

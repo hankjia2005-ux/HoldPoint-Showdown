@@ -1,5 +1,6 @@
 using System.Collections;
 using HoldPointShowdown.Data;
+using HoldPointShowdown.GameFlow;
 using HoldPointShowdown.Player;
 using UnityEngine;
 
@@ -20,6 +21,8 @@ namespace HoldPointShowdown.Gameplay
         private SphereCollider _trigger;
         private bool _available = true;
         private float _collectableAt;
+        private float _despawnAt;
+        private MatchPhaseController _match;
 
         public bool IsWeapon => _weapon != null;
         public bool IsAvailable => _available;
@@ -36,6 +39,7 @@ namespace HoldPointShowdown.Gameplay
             _respawnSeconds = Mathf.Max(0f, respawnSeconds);
             _visualRoot = visualRoot;
             _collectableAt = 0f;
+            _despawnAt = 0f;
             EnsureTrigger();
         }
 
@@ -48,6 +52,7 @@ namespace HoldPointShowdown.Gameplay
             _respawnSeconds = Mathf.Max(0f, respawnSeconds);
             _visualRoot = visualRoot;
             _collectableAt = 0f;
+            _despawnAt = 0f;
             EnsureTrigger();
         }
 
@@ -56,7 +61,8 @@ namespace HoldPointShowdown.Gameplay
             int magazineAmmo,
             int reserveAmmo,
             GameObject visualRoot,
-            float pickupDelay = 0.8f)
+            float pickupDelay = 0.8f,
+            float despawnSeconds = 60f)
         {
             _weapon = weapon;
             _amount = 1;
@@ -65,6 +71,26 @@ namespace HoldPointShowdown.Gameplay
             _respawnSeconds = 0f;
             _visualRoot = visualRoot;
             _collectableAt = Time.time + Mathf.Max(0f, pickupDelay);
+            _despawnAt = despawnSeconds > 0f ? Time.time + despawnSeconds : 0f;
+            EnsureTrigger();
+        }
+
+        public void ConfigureDroppedSupply(
+            SupplyKind kind,
+            int amount,
+            GameObject visualRoot,
+            float pickupDelay = 0.6f,
+            float despawnSeconds = 60f)
+        {
+            _supplyKind = kind;
+            _amount = Mathf.Max(1, amount);
+            _weapon = null;
+            _weaponMagazine = -1;
+            _weaponReserve = -1;
+            _respawnSeconds = 0f;
+            _visualRoot = visualRoot;
+            _collectableAt = Time.time + Mathf.Max(0f, pickupDelay);
+            _despawnAt = despawnSeconds > 0f ? Time.time + despawnSeconds : 0f;
             EnsureTrigger();
         }
 
@@ -75,12 +101,26 @@ namespace HoldPointShowdown.Gameplay
                 return false;
             }
 
-            bool collected = IsWeapon
-                ? inventory.TryAddWeapon(_weapon, _weaponMagazine, _weaponReserve)
-                : inventory.TryAdd(_supplyKind, _amount);
-            if (!collected)
+            if (IsWeapon)
             {
-                return false;
+                if (!inventory.TryAddWeapon(_weapon, _weaponMagazine, _weaponReserve))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                int collectedAmount = inventory.TryAddUpTo(_supplyKind, _amount);
+                if (collectedAmount <= 0)
+                {
+                    return false;
+                }
+
+                _amount -= collectedAmount;
+                if (_amount > 0)
+                {
+                    return true;
+                }
             }
 
             if (isActiveAndEnabled)
@@ -100,6 +140,19 @@ namespace HoldPointShowdown.Gameplay
             EnsureTrigger();
         }
 
+        private void Start()
+        {
+            _match = Object.FindAnyObjectByType<MatchPhaseController>();
+        }
+
+        private void Update()
+        {
+            if (_despawnAt > 0f && Time.time >= _despawnAt)
+            {
+                Destroy(gameObject);
+            }
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             PrototypeInventory inventory = other.GetComponentInParent<PrototypeInventory>();
@@ -116,8 +169,67 @@ namespace HoldPointShowdown.Gameplay
             }
 
             yield return new WaitForSeconds(_respawnSeconds);
+            if (_match != null && _match.CurrentPhase >= HoldPointShowdown.Core.MatchPhase.FinalBattle)
+            {
+                yield break;
+            }
+
             _collectableAt = 0f;
             SetAvailable(true);
+        }
+
+        public static WorldItemPickup CreateSupplyDrop(SupplyKind kind, int amount, Vector3 position)
+        {
+            GameObject root = new($"掉落 · {FormatSupplyName(kind)} × {Mathf.Max(1, amount)}");
+            root.transform.position = position;
+
+            PrimitiveType shape = kind == SupplyKind.ArmorPlate ? PrimitiveType.Cylinder : PrimitiveType.Cube;
+            GameObject visual = GameObject.CreatePrimitive(shape);
+            visual.name = "掉落物模型";
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localPosition = Vector3.up * 0.45f;
+            visual.transform.localScale = kind switch
+            {
+                SupplyKind.AmmoPack => new Vector3(0.65f, 0.42f, 0.48f),
+                SupplyKind.Medkit => new Vector3(0.7f, 0.55f, 0.5f),
+                _ => new Vector3(0.72f, 0.18f, 0.72f)
+            };
+            Collider visualCollider = visual.GetComponent<Collider>();
+            if (visualCollider != null)
+            {
+                Destroy(visualCollider);
+            }
+
+            Renderer renderer = visual.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                Material material = new(shader)
+                {
+                    color = kind switch
+                    {
+                        SupplyKind.AmmoPack => new Color(1f, 0.65f, 0.12f),
+                        SupplyKind.Medkit => new Color(1f, 0.25f, 0.22f),
+                        _ => new Color(0.12f, 0.78f, 0.95f)
+                    }
+                };
+                renderer.material = material;
+            }
+
+            WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
+            pickup.ConfigureDroppedSupply(kind, amount, visual);
+            return pickup;
+        }
+
+        private static string FormatSupplyName(SupplyKind kind)
+        {
+            return kind switch
+            {
+                SupplyKind.AmmoPack => "弹药包",
+                SupplyKind.Medkit => "医疗包",
+                SupplyKind.ArmorPlate => "护甲片",
+                _ => "物资"
+            };
         }
 
         private void SetAvailable(bool available)

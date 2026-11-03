@@ -23,6 +23,8 @@ namespace HoldPointShowdown.UI
         private Texture2D _blueTexture;
         private Texture2D _armorTexture;
         private Texture2D _darkTexture;
+        private GUIStyle _messageStyle;
+        private GUIStyle _resultStyle;
 
         public void Configure(
             MatchPhaseController match,
@@ -58,10 +60,12 @@ namespace HoldPointShowdown.UI
             DrawPlayerStatus(height);
             DrawAmmo(width, height);
             DrawCrosshair(width, height);
+            DrawMatchMessage(width);
+            DrawResult(width, height);
 
             GUI.Label(
                 new Rect((width * 0.5f) - 310f, height - 38f, 620f, 24f),
-                "WASD 移动  空格 跳跃  左键 射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 物资箱",
+                "WASD 移动  空格 跳跃  左键 射击  R 换弹  1/2 切枪  G 丢枪  Z/X/C 物资  E 消耗品箱  F11/Alt+Enter 全屏",
                 _smallStyle);
 
             GUI.matrix = previousMatrix;
@@ -70,22 +74,24 @@ namespace HoldPointShowdown.UI
         private void DrawPhaseBanner(float width)
         {
             string phase = _match != null ? FormatPhase(_match.CurrentPhase) : "准备中";
-            float elapsed = _match != null ? _match.ElapsedSeconds : 0f;
-            int minutes = Mathf.FloorToInt(elapsed / 60f);
-            int seconds = Mathf.FloorToInt(elapsed % 60f);
+            float remaining = _match != null ? _match.RemainingPhaseSeconds : 0f;
+            int minutes = Mathf.FloorToInt(remaining / 60f);
+            int seconds = Mathf.CeilToInt(remaining % 60f);
+            int blue = _match != null ? _match.GetRemainingTeamMembers(TeamId.Blue) : 0;
+            int red = _match != null ? _match.GetRemainingTeamMembers(TeamId.Red) : 0;
 
             Rect panel = new((width * 0.5f) - 170f, 18f, 340f, 70f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
             GUI.Label(new Rect(panel.x, panel.y + 9f, panel.width, 28f), phase, _phaseStyle);
             GUI.Label(
                 new Rect(panel.x, panel.y + 38f, panel.width, 22f),
-                $"{minutes:00}:{seconds:00}   |   淘汰红方全员",
+                $"本阶段剩余 {minutes:00}:{seconds:00}   |   蓝 {blue} : {red} 红",
                 _smallStyle);
         }
 
         private void DrawPlayerStatus(float height)
         {
-            Rect panel = new(20f, height - 142f, 300f, 104f);
+            Rect panel = new(20f, height - 160f, 320f, 122f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
 
             float health = _playerDamageable != null ? _playerDamageable.CurrentHealth : 0f;
@@ -99,11 +105,27 @@ namespace HoldPointShowdown.UI
 
             GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 80f, 20f), "护甲", _smallStyle);
             DrawBar(new Rect(panel.x + 90f, panel.y + 72f, 194f, 10f), armor / maxArmor, _armorTexture);
+
+            CombatantLifecycle player = _match != null ? _match.GetHumanPlayer() : null;
+            string state = "状态：战斗中";
+            if (player != null && player.IsEliminated)
+            {
+                state = "状态：永久出局";
+            }
+            else if (player != null && player.IsWaitingToRespawn)
+            {
+                state = $"已返回基地 · {player.RespawnSecondsRemaining:0.0} 秒后复活";
+            }
+            else if (_match != null && _match.CurrentPhase == MatchPhase.FinalBattle && player != null)
+            {
+                state = $"终局命数：{player.FinalLivesRemaining}/{_match.Rules.FinalBattleLives}";
+            }
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 93f, panel.width - 32f, 20f), state, _smallStyle);
         }
 
         private void DrawAmmo(float width, float height)
         {
-            Rect panel = new(width - 260f, height - 142f, 240f, 104f);
+            Rect panel = new(width - 260f, height - 160f, 240f, 122f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
 
             string magazine = _weapon != null ? _weapon.MagazineAmmo.ToString("00") : "--";
@@ -121,6 +143,37 @@ namespace HoldPointShowdown.UI
                 ? $"背包 {_inventory.UsedSlots}/{_inventory.Capacity}   弹{_inventory.AmmoPacks}  医{_inventory.Medkits}  甲{_inventory.ArmorPlates}"
                 : "背包 --";
             GUI.Label(new Rect(panel.x + 16f, panel.y + 69f, 208f, 20f), supplies, _smallStyle);
+            GUI.Label(new Rect(panel.x + 16f, panel.y + 93f, 208f, 18f), "基础手枪绑定 · 死亡不掉落", _smallStyle);
+        }
+
+        private void DrawMatchMessage(float width)
+        {
+            if (_match == null || string.IsNullOrWhiteSpace(_match.LatestMessage)
+                || Time.time > _match.MessageVisibleUntil)
+            {
+                return;
+            }
+
+            GUI.Label(new Rect((width * 0.5f) - 300f, 96f, 600f, 42f), _match.LatestMessage, _messageStyle);
+        }
+
+        private void DrawResult(float width, float height)
+        {
+            if (_match == null || _match.Result == MatchResult.None)
+            {
+                return;
+            }
+
+            Rect panel = new((width * 0.5f) - 250f, (height * 0.5f) - 95f, 500f, 190f);
+            GUI.Box(panel, GUIContent.none, _panelStyle);
+            string result = _match.Result switch
+            {
+                MatchResult.BlueVictory => "蓝方胜利",
+                MatchResult.RedVictory => "红方胜利",
+                _ => "本局平局"
+            };
+            GUI.Label(new Rect(panel.x, panel.y + 34f, panel.width, 64f), result, _resultStyle);
+            GUI.Label(new Rect(panel.x, panel.y + 112f, panel.width, 34f), "比赛已结束 · 重新开始请返回编辑器或主菜单", _smallStyle);
         }
 
         private void DrawCrosshair(float width, float height)
@@ -193,6 +246,16 @@ namespace HoldPointShowdown.UI
             {
                 fontSize = 28,
                 normal = { textColor = new Color(0.9f, 0.98f, 1f, 0.9f) }
+            };
+            _messageStyle = new GUIStyle(_phaseStyle)
+            {
+                fontSize = 18,
+                normal = { textColor = new Color(1f, 0.85f, 0.25f) }
+            };
+            _resultStyle = new GUIStyle(_phaseStyle)
+            {
+                fontSize = 38,
+                normal = { textColor = Color.white }
             };
         }
 

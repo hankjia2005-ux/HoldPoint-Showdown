@@ -38,7 +38,14 @@ namespace HoldPointShowdown.Presentation
         {
             if (_instance != null)
             {
-                Destroy(_instance);
+                if (Application.isPlaying)
+                {
+                    Destroy(_instance);
+                }
+                else
+                {
+                    DestroyImmediate(_instance);
+                }
             }
 
             CurrentMuzzle = _socket;
